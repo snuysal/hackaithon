@@ -1,0 +1,26 @@
+{
+	"name": "@hackaithon/api-learning",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@hackaithon/database": "file:../../packages/database",
+		"@hackaithon/shared-types": "file:../../packages/shared-types",
+		"@nestjs/common": "^11.1.28",
+		"@nestjs/core": "^11.1.28",
+		"@nestjs/platform-express": "^11.1.28",
+		"class-transformer": "^0.5.1",
+		"class-validator": "^0.15.1",
+		"dotenv": "^16.6.1",
+		"reflect-metadata": "^0.2.2",
+		"rxjs": "^7.8.2"
+	},
+	"scripts": {
+		"compile": "tsc --noEmit -p tsconfig.json",
+		"dev": "node --loader ts-node/esm src/main.ts",
+		"start": "node --loader ts-node/esm src/main.ts"
+	},
+	"devDependencies": {
+		"ts-node": "^10.9.2"
+	}
+}

@@ -1,0 +1,196 @@
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "sqlite"
+	url      = "file:./dev.db"
+}
+
+enum AppRole {
+	ADMIN
+	TRAINER
+	PARTICIPANT
+}
+
+enum ApprovalStatus {
+	PENDING
+	APPROVED
+	REJECTED
+}
+
+enum ElearningLevel {
+	JUNIOR
+	MEDIOR
+	SENIOR
+}
+
+enum ElearningStatus {
+	DRAFT
+	PUBLISHED
+}
+
+enum EnrollmentStatus {
+	NOT_STARTED
+	IN_PROGRESS
+	COMPLETED
+}
+
+enum AssignmentType {
+	QUIZ
+	OPEN_TEXT
+}
+
+model User {
+	id             String         @id @default(cuid())
+	name           String
+	email          String         @unique
+	passwordHash   String
+	birthDate      DateTime
+	role           AppRole        @default(PARTICIPANT)
+	approvalStatus ApprovalStatus @default(PENDING)
+	approvedAt     DateTime?
+	createdAt      DateTime       @default(now())
+	updatedAt      DateTime       @updatedAt
+
+	teamMemberships UserTeamMembership[]
+	createdCourses   Elearning[]         @relation("ElearningAuthor")
+	enrollments      Enrollment[]
+	badges           UserBadge[]
+}
+
+model Team {
+	id        String   @id @default(cuid())
+	name      String   @unique
+	createdAt DateTime @default(now())
+
+	memberships UserTeamMembership[]
+}
+
+model UserTeamMembership {
+	id       String   @id @default(cuid())
+	joinedAt DateTime @default(now())
+
+	userId String
+	teamId String
+
+	user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+	team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+	@@unique([userId, teamId])
+}
+
+model Elearning {
+	id          String         @id @default(cuid())
+	title       String
+	description String
+	level       ElearningLevel
+	status      ElearningStatus @default(DRAFT)
+	publishedAt DateTime?
+	createdAt   DateTime        @default(now())
+	updatedAt   DateTime        @updatedAt
+
+	createdById String
+	createdBy   User @relation("ElearningAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+
+	sections    ElearningSection[]
+	enrollments Enrollment[]
+}
+
+model ElearningSection {
+	id         String  @id @default(cuid())
+	title      String
+	orderIndex Int
+	content    String
+	createdAt  DateTime @default(now())
+	updatedAt  DateTime @updatedAt
+
+	elearningId String
+	elearning   Elearning @relation(fields: [elearningId], references: [id], onDelete: Cascade)
+
+	assignment Assignment?
+
+	@@unique([elearningId, orderIndex])
+}
+
+model Assignment {
+	id                String         @id @default(cuid())
+	assignmentType    AssignmentType
+	prompt            String
+	optionsJson       String?
+	correctAnswerJson String?
+	points            Int            @default(0)
+	configJson        String?
+
+	sectionId String @unique
+	section   ElearningSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+	progressEntries ProgressEntry[]
+}
+
+model Enrollment {
+	id          String           @id @default(cuid())
+	status      EnrollmentStatus @default(NOT_STARTED)
+	startedAt   DateTime?
+	completedAt DateTime?
+	lastPosition Int             @default(0)
+	totalScore  Int              @default(0)
+	streakDays  Int              @default(0)
+	updatedAt   DateTime         @updatedAt
+	createdAt   DateTime         @default(now())
+
+	userId     String
+	elearningId String
+
+	user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+	elearning Elearning @relation(fields: [elearningId], references: [id], onDelete: Cascade)
+
+	progressEntries ProgressEntry[]
+
+	@@unique([userId, elearningId])
+}
+
+model ProgressEntry {
+	id              String   @id @default(cuid())
+	answerText      String?
+	answerJson      String?
+	isCorrect       Boolean?
+	score           Int      @default(0)
+	timeSpentSeconds Int     @default(0)
+	updatedAt       DateTime @updatedAt
+	createdAt       DateTime @default(now())
+
+	enrollmentId String
+	sectionId    String
+	assignmentId String?
+
+	enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+	assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+	@@unique([enrollmentId, sectionId, assignmentId])
+}
+
+model BadgeDefinition {
+	id          String   @id @default(cuid())
+	code        String   @unique
+	title       String
+	description String
+	ruleJson    String
+	createdAt   DateTime @default(now())
+
+	awards UserBadge[]
+}
+
+model UserBadge {
+	id        String   @id @default(cuid())
+	awardedAt DateTime @default(now())
+
+	userId           String
+	badgeDefinitionId String
+
+	user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+	badgeDefinition BadgeDefinition @relation(fields: [badgeDefinitionId], references: [id], onDelete: Cascade)
+
+	@@unique([userId, badgeDefinitionId])
+}
+

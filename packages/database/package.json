@@ -1,0 +1,23 @@
+{
+	"name": "@hackaithon/database",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"compile": "tsc --noEmit -p tsconfig.json",
+		"db:push": "prisma db push --schema prisma/schema.prisma",
+		"db:push:local": "prisma db push --schema prisma/schema.local.prisma",
+		"prisma:format": "prisma format --schema prisma/schema.prisma",
+		"prisma:generate": "prisma generate --schema prisma/schema.prisma",
+		"prisma:generate:local": "prisma generate --schema prisma/schema.local.prisma"
+	},
+	"dependencies": {
+		"@prisma/client": "^6.16.0"
+	},
+	"devDependencies": {
+		"prisma": "^6.16.0"
+	}
+}
