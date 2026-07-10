@@ -1,10 +1,4 @@
-import {
-    ELEARNING_LEVELS,
-    ELEARNING_VISIBILITIES,
-    type ElearningLevel,
-    type ElearningVisibility,
-    type UpdateElearningRequest,
-} from "@hackaithon/shared-types";
+import { ELEARNING_LEVELS, type ElearningLevel, type UpdateElearningRequest } from "@hackaithon/shared-types";
 import { Type } from "class-transformer";
 import { ArrayMinSize, IsArray, IsIn, IsOptional, IsString, ValidateNested } from "class-validator";
 
@@ -22,10 +16,6 @@ export class UpdateElearningDto implements UpdateElearningRequest {
     @IsOptional()
     @IsIn(ELEARNING_LEVELS)
     level?: ElearningLevel;
-
-    @IsOptional()
-    @IsIn(ELEARNING_VISIBILITIES)
-    visibility?: ElearningVisibility;
 
     @IsOptional()
     @IsArray()

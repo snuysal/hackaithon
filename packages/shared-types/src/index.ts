@@ -6,10 +6,6 @@ export const APPROVAL_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
 
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 
-export const TEAM_OPTIONS = ["TAX", "TEAM", "QTA"] as const;
-
-export type TeamName = (typeof TEAM_OPTIONS)[number];
-
 export const ELEARNING_LEVELS = ["JUNIOR", "MEDIOR", "SENIOR"] as const;
 
 export type ElearningLevel = (typeof ELEARNING_LEVELS)[number];
@@ -17,10 +13,6 @@ export type ElearningLevel = (typeof ELEARNING_LEVELS)[number];
 export const ELEARNING_STATUSES = ["DRAFT", "PUBLISHED"] as const;
 
 export type ElearningStatus = (typeof ELEARNING_STATUSES)[number];
-
-export const ELEARNING_VISIBILITIES = ["PUBLIC", "INTERNAL"] as const;
-
-export type ElearningVisibility = (typeof ELEARNING_VISIBILITIES)[number];
 
 export const ASSIGNMENT_TYPES = ["QUIZ", "OPEN_TEXT"] as const;
 
@@ -30,7 +22,7 @@ export type SignupRequest = {
     name: string;
     email: string;
     birthDateIso: string;
-    teamName: TeamName;
+    teamName: string;
     password: string;
 };
 
@@ -75,10 +67,6 @@ export type UpdateUserRoleRequest = {
     newRole: AppRole;
 };
 
-export type AddElearningOwnerRequest = {
-    ownerEmail: string;
-};
-
 export type AssignmentInput = {
     assignmentType: AssignmentType;
     prompt: string;
@@ -98,7 +86,6 @@ export type CreateElearningRequest = {
     title: string;
     description: string;
     level: ElearningLevel;
-    visibility: ElearningVisibility;
     sections: ElearningSectionInput[];
 };
 
@@ -106,7 +93,6 @@ export type UpdateElearningRequest = {
     title?: string;
     description?: string;
     level?: ElearningLevel;
-    visibility?: ElearningVisibility;
     sections?: ElearningSectionInput[];
 };
 
@@ -134,34 +120,11 @@ export type ElearningView = {
     description: string;
     level: ElearningLevel;
     status: ElearningStatus;
-    visibility: ElearningVisibility;
     publishedAtIso: string | null;
     createdAtIso: string;
     updatedAtIso: string;
     createdById: string;
     sections: ElearningSectionView[];
-};
-
-export type ElearningOwnerView = {
-    userId: string;
-    name: string;
-    email: string;
-    role: AppRole;
-    addedAtIso: string;
-};
-
-export type ElearningAuditLogView = {
-    id: string;
-    actorUserId: string;
-    actorName: string;
-    action: string;
-    summary: string;
-    createdAtIso: string;
-};
-
-export type ManagedElearningView = ElearningView & {
-    owners: ElearningOwnerView[];
-    logs: ElearningAuditLogView[];
 };
 
 export type ElearningSummary = {
@@ -170,7 +133,6 @@ export type ElearningSummary = {
     description: string;
     level: ElearningLevel;
     status: ElearningStatus;
-    visibility: ElearningVisibility;
     sectionCount: number;
     publishedAtIso: string | null;
 };

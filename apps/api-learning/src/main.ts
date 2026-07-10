@@ -12,7 +12,7 @@ const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirectoryPath = dirname(currentFilePath);
 
 loadEnvironment({
-    path: resolve(currentDirectoryPath, "../../../.env"),
+    path: resolve(currentDirectoryPath, "../../../packages/database/.env"),
 });
 
 async function bootstrap(): Promise<void> {

@@ -17,12 +17,10 @@
 	},
 	"scripts": {
 		"compile": "tsc --noEmit -p tsconfig.json",
-		"build": "tsc -p tsconfig.build.json",
-		"dev": "tsc-watch -p tsconfig.build.json --onSuccess \"node dist/main.js\"",
-		"start": "node dist/main.js"
+		"dev": "node --loader ts-node/esm src/main.ts",
+		"start": "node --loader ts-node/esm src/main.ts"
 	},
 	"devDependencies": {
-		"tsc-watch": "^6.2.1",
 		"ts-node": "^10.9.2"
 	}
 }

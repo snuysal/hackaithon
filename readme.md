@@ -26,34 +26,14 @@ Agentic AI writes the code. Playwright MCP runs the browser. You watch in awe an
 
 Prerequisites:
 
-- Node.js 20 or 22 recommended
+- Node.js 20+
 - npm
 - Docker Desktop for the preferred PostgreSQL mode
-
-Setup after cloning:
-
-1. Install dependencies.
-2. Create the database env file.
-
-Windows PowerShell:
-
-```powershell
-npm install
-Copy-Item packages/database/.env.example packages/database/.env
-```
-
-macOS / Linux:
-
-```bash
-npm install
-cp packages/database/.env.example packages/database/.env
-```
-
-The database env file must contain a `DATABASE_URL`. The default example points to the local Docker PostgreSQL instance.
 
 Preferred local mode with PostgreSQL:
 
 ```bash
+npm install
 npm run db:up
 npm run dev:postgres
 ```
@@ -61,6 +41,7 @@ npm run dev:postgres
 Fallback mode without Docker (SQLite):
 
 ```bash
+npm install
 npm run dev:local
 ```
 
@@ -78,36 +59,6 @@ Stop services:
 
 ```bash
 npm run db:down
-```
-
-## Troubleshooting
-
-Prisma `EPERM` on Windows during `npm run db:generate`, `npm run db:push`, or `npm run dev:postgres`:
-
-If you see an error like this:
-
-```text
-EPERM: operation not permitted, rename ... query_engine-windows.dll.node
-```
-
-then a previous Node/Nest/Vite process is usually still running and locking Prisma's generated engine file.
-
-Fix:
-
-1. Stop any running dev servers.
-2. Close old terminals that were running `npm run dev`, `npm run dev:postgres`, or `npm run dev:local`.
-3. Start again with:
-
-```bash
-npm run db:generate
-npm run db:push
-npm run dev:postgres
-```
-
-If needed, check for leftover Node processes on Windows:
-
-```powershell
-Get-Process node
 ```
 
 > ⚠️ Warning: an irresponsible number of tokens will be consumed during this event. They knew what they signed up for.

@@ -11,7 +11,7 @@ export function normalizeSignupPayload(payload: SignupRequest): SignupRequest {
         ...payload,
         name: payload.name.trim(),
         email: payload.email.toLowerCase().trim(),
-        teamName: payload.teamName,
+        teamName: payload.teamName.trim(),
     };
 }
 
