@@ -55,6 +55,8 @@ model User {
 
 	teamMemberships UserTeamMembership[]
 	createdCourses   Elearning[]         @relation("ElearningAuthor")
+	ownedElearnings  ElearningOwner[]
+	elearningAuditLogs ElearningAuditLog[] @relation("ElearningAuditActor")
 	enrollments      Enrollment[]
 	badges           UserBadge[]
 }
@@ -93,8 +95,34 @@ model Elearning {
 	createdById String
 	createdBy   User @relation("ElearningAuthor", fields: [createdById], references: [id], onDelete: Restrict)
 
+	owners      ElearningOwner[]
+	auditLogs   ElearningAuditLog[]
 	sections    ElearningSection[]
 	enrollments Enrollment[]
+}
+
+model ElearningOwner {
+	id          String   @id @default(cuid())
+	addedAt     DateTime @default(now())
+	elearningId String
+	userId      String
+
+	elearning Elearning @relation(fields: [elearningId], references: [id], onDelete: Cascade)
+	user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@unique([elearningId, userId])
+}
+
+model ElearningAuditLog {
+	id          String   @id @default(cuid())
+	action      String
+	summary     String
+	createdAt   DateTime @default(now())
+	elearningId String
+	actorUserId String
+
+	elearning Elearning @relation(fields: [elearningId], references: [id], onDelete: Cascade)
+	actorUser User @relation("ElearningAuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
 }
 
 model ElearningSection {

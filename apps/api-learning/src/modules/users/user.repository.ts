@@ -1,6 +1,6 @@
-import { DEFAULT_SEED_BADGES, DEFAULT_SEED_USERS } from "@hackaithon/database";
-import type { ApprovalStatus, AppRole } from "@hackaithon/shared-types";
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { DEFAULT_SEED_BADGES, DEFAULT_SEED_USERS, DEFAULT_TEAM_NAMES } from "@hackaithon/database";
+import { TEAM_OPTIONS, type ApprovalStatus, type AppRole, type TeamName } from "@hackaithon/shared-types";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { PrismaService } from "../database/prisma.service.js";
 
@@ -37,7 +37,7 @@ type DbUserWithPrimaryTeam = {
 export type CreateParticipantInput = {
     name: string;
     email: string;
-    teamName: string;
+    teamName: TeamName;
     password: string;
     birthDateIso: string;
 };
@@ -52,10 +52,12 @@ export class UserRepository {
     public async createParticipant(input: CreateParticipantInput): Promise<UserRecord> {
         await this.ensureSeeded();
 
+        const normalizedTeamName = normalizeTeamName(input.teamName);
+
         try {
             const team = await this.prisma.team.upsert({
-                where: { name: input.teamName.trim() },
-                create: { name: input.teamName.trim() },
+                where: { name: normalizedTeamName },
+                create: { name: normalizedTeamName },
                 update: {},
             });
 
@@ -208,6 +210,18 @@ export class UserRepository {
     }
 
     private async seedDefaults(): Promise<void> {
+        for (const teamName of DEFAULT_TEAM_NAMES) {
+            await this.prisma.team.upsert({
+                where: {
+                    name: teamName,
+                },
+                create: {
+                    name: teamName,
+                },
+                update: {},
+            });
+        }
+
         for (const seedUser of DEFAULT_SEED_USERS) {
             const team = await this.prisma.team.upsert({
                 where: {
@@ -279,6 +293,16 @@ export class UserRepository {
 
 function normalizeEmail(value: string): string {
     return value.trim().toLowerCase();
+}
+
+function normalizeTeamName(value: string): TeamName {
+    const normalizedValue = value.trim().toUpperCase();
+
+    if (!TEAM_OPTIONS.includes(normalizedValue as TeamName)) {
+        throw new BadRequestException(`teamName must be one of: ${TEAM_OPTIONS.join(", ")}.`);
+    }
+
+    return normalizedValue as TeamName;
 }
 
 function mapDbUserToUserRecord(user: DbUserWithPrimaryTeam): UserRecord {

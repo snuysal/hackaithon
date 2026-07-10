@@ -1,5 +1,5 @@
-import type { SignupRequest } from "@hackaithon/shared-types";
-import { IsDateString, IsEmail, IsNotEmpty, IsString, MinLength } from "class-validator";
+import { TEAM_OPTIONS, type SignupRequest, type TeamName } from "@hackaithon/shared-types";
+import { IsDateString, IsEmail, IsIn, IsNotEmpty, IsString, MinLength } from "class-validator";
 
 export class SignupDto implements SignupRequest {
     @IsString()
@@ -12,9 +12,8 @@ export class SignupDto implements SignupRequest {
     @IsDateString()
     birthDateIso!: string;
 
-    @IsString()
-    @IsNotEmpty()
-    teamName!: string;
+    @IsIn(TEAM_OPTIONS)
+    teamName!: TeamName;
 
     @IsString()
     @MinLength(6)

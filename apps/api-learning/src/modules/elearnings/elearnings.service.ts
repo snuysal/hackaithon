@@ -1,14 +1,18 @@
 import type {
     AppRole,
+    ElearningAuditLogView,
+    ElearningOwnerView,
     ElearningSectionView,
     ElearningSummary,
     ElearningView,
+    ManagedElearningView,
 } from "@hackaithon/shared-types";
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
-import { assertCanManageElearnings, canManageElearnings } from "../../common/superuser-policy.js";
+import { assertCanManageElearnings, canManageElearnings, isSuperuser } from "../../common/superuser-policy.js";
 import { UserRepository } from "../users/user.repository.js";
 import { PrismaService } from "../database/prisma.service.js";
+import type { AddElearningOwnerDto } from "./dto/add-elearning-owner.dto.js";
 import type { CreateElearningDto } from "./dto/create-elearning.dto.js";
 import type { UpdateElearningDto } from "./dto/update-elearning.dto.js";
 
@@ -36,11 +40,35 @@ type DbElearning = {
     description: string;
     level: "JUNIOR" | "MEDIOR" | "SENIOR";
     status: "DRAFT" | "PUBLISHED";
+    visibility: "PUBLIC" | "INTERNAL";
     publishedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
     createdById: string;
+    owners: DbOwner[];
+    auditLogs: DbAuditLog[];
     sections: DbSection[];
+};
+
+type DbOwner = {
+    addedAt: Date;
+    user: {
+        id: string;
+        name: string;
+        email: string;
+        role: AppRole;
+    };
+};
+
+type DbAuditLog = {
+    id: string;
+    action: string;
+    summary: string;
+    createdAt: Date;
+    actorUser: {
+        id: string;
+        name: string;
+    };
 };
 
 type DbPublicElearning = {
@@ -49,11 +77,28 @@ type DbPublicElearning = {
     description: string;
     level: "JUNIOR" | "MEDIOR" | "SENIOR";
     status: "DRAFT" | "PUBLISHED";
+    visibility: "PUBLIC" | "INTERNAL";
     publishedAt: Date | null;
     sections: Array<{ id: string }>;
 };
 
 const elearningInclude = {
+    owners: {
+        include: {
+            user: true,
+        },
+        orderBy: {
+            addedAt: "asc",
+        },
+    },
+    auditLogs: {
+        include: {
+            actorUser: true,
+        },
+        orderBy: {
+            createdAt: "desc",
+        },
+    },
     sections: {
         include: {
             assignment: true,
@@ -84,7 +129,13 @@ export class ElearningsService {
                 title: payload.title.trim(),
                 description: payload.description.trim(),
                 level: payload.level,
+                visibility: payload.visibility,
                 createdById: actorUserId,
+                owners: {
+                    create: {
+                        userId: actorUserId,
+                    },
+                },
                 sections: {
                     create: payload.sections.map((section, index) => ({
                         title: section.title.trim(),
@@ -108,7 +159,11 @@ export class ElearningsService {
             include: elearningInclude,
         });
 
-        return mapDbElearningToView(elearning);
+        await this.createAuditLog(elearning.id, actorUserId, "ELEARNING_CREATED", `Created training ${elearning.title}.`);
+
+        const managedElearning = await this.getManagedElearningRecord(elearning.id);
+
+        return mapManagedElearningToView(managedElearning);
     }
 
     public async updateElearning(
@@ -117,17 +172,7 @@ export class ElearningsService {
         actorRole: AppRole,
         actorUserId: string
     ): Promise<ElearningView> {
-        assertCanManageElearnings(actorRole);
-        await this.userRepository.findById(actorUserId);
-
-        const existing = await this.prisma.elearning.findUnique({
-            where: { id: elearningId },
-            select: { id: true },
-        });
-
-        if (!existing) {
-            throw new NotFoundException(`E-learning with id ${elearningId} was not found.`);
-        }
+        await this.assertElearningWriteAccess(elearningId, actorRole, actorUserId);
 
         await this.prisma.elearning.update({
             where: {
@@ -137,6 +182,7 @@ export class ElearningsService {
                 title: payload.title?.trim(),
                 description: payload.description?.trim(),
                 level: payload.level,
+                visibility: payload.visibility,
             },
         });
 
@@ -171,23 +217,15 @@ export class ElearningsService {
             }
         }
 
-        const elearning = await this.prisma.elearning.findUnique({
-            where: {
-                id: elearningId,
-            },
-            include: elearningInclude,
-        });
+        await this.createAuditLog(elearningId, actorUserId, "ELEARNING_UPDATED", `Updated training ${elearningId}.`);
 
-        if (!elearning) {
-            throw new NotFoundException(`E-learning with id ${elearningId} was not found.`);
-        }
+        const elearning = await this.getManagedElearningRecord(elearningId);
 
-        return mapDbElearningToView(elearning);
+        return mapManagedElearningToView(elearning);
     }
 
     public async publishElearning(elearningId: string, actorRole: AppRole, actorUserId: string): Promise<ElearningView> {
-        assertCanManageElearnings(actorRole);
-        await this.userRepository.findById(actorUserId);
+        await this.assertElearningWriteAccess(elearningId, actorRole, actorUserId);
 
         try {
             const elearning = await this.prisma.elearning.update({
@@ -201,16 +239,38 @@ export class ElearningsService {
                 include: elearningInclude,
             });
 
-            return mapDbElearningToView(elearning);
+            await this.createAuditLog(elearningId, actorUserId, "ELEARNING_PUBLISHED", `Published training ${elearning.title}.`);
+
+            return mapManagedElearningToView(elearning);
         } catch {
             throw new NotFoundException(`E-learning with id ${elearningId} was not found.`);
         }
+    }
+
+    public async listManageableElearnings(actorRole: AppRole, actorUserId: string): Promise<ManagedElearningView[]> {
+        assertCanManageElearnings(actorRole);
+        await this.userRepository.findById(actorUserId);
+
+        const elearnings = await this.prisma.elearning.findMany({
+            where: isSuperuser(actorRole)
+                ? undefined
+                : {
+                    OR: [{ createdById: actorUserId }, { owners: { some: { userId: actorUserId } } }],
+                },
+            include: elearningInclude,
+            orderBy: {
+                updatedAt: "desc",
+            },
+        });
+
+        return elearnings.map(mapManagedElearningToView);
     }
 
     public async listPublicElearnings(): Promise<ElearningSummary[]> {
         const elearnings: DbPublicElearning[] = await this.prisma.elearning.findMany({
             where: {
                 status: "PUBLISHED",
+                visibility: "PUBLIC",
             },
             include: {
                 sections: {
@@ -230,6 +290,7 @@ export class ElearningsService {
             description: elearning.description,
             level: elearning.level,
             status: elearning.status,
+            visibility: elearning.visibility,
             sectionCount: elearning.sections.length,
             publishedAtIso: elearning.publishedAt ? elearning.publishedAt.toISOString() : null,
         }));
@@ -257,7 +318,123 @@ export class ElearningsService {
             throw new ForbiddenException("Draft e-learnings can only be viewed by ADMIN or TRAINER.");
         }
 
-        return mapDbElearningToView(elearning);
+        return mapManagedElearningToView(elearning);
+    }
+
+    public async deleteElearning(elearningId: string, actorRole: AppRole, actorUserId: string): Promise<{ deleted: true }> {
+        const elearning = await this.assertElearningWriteAccess(elearningId, actorRole, actorUserId);
+        await this.createAuditLog(elearningId, actorUserId, "ELEARNING_DELETED", `Deleted training ${elearning.title}.`);
+        await this.prisma.elearning.delete({
+            where: {
+                id: elearningId,
+            },
+        });
+        return { deleted: true };
+    }
+
+    public async addOwner(
+        elearningId: string,
+        payload: AddElearningOwnerDto,
+        actorRole: AppRole,
+        actorUserId: string
+    ): Promise<ManagedElearningView> {
+        const elearning = await this.assertElearningWriteAccess(elearningId, actorRole, actorUserId);
+        const ownerUser = await this.userRepository.findByEmail(payload.ownerEmail.trim().toLowerCase());
+
+        if (!ownerUser) {
+            throw new NotFoundException(`User with e-mail ${payload.ownerEmail} was not found.`);
+        }
+
+        if (ownerUser.role !== "TRAINER" && ownerUser.role !== "ADMIN") {
+            throw new ForbiddenException("Only TRAINER or ADMIN users can be added as training owners.");
+        }
+
+        await this.prisma.elearningOwner.upsert({
+            where: {
+                elearningId_userId: {
+                    elearningId,
+                    userId: ownerUser.id,
+                },
+            },
+            create: {
+                elearningId,
+                userId: ownerUser.id,
+            },
+            update: {},
+        });
+
+        await this.createAuditLog(
+            elearningId,
+            actorUserId,
+            "ELEARNING_OWNER_ADDED",
+            `Added ${ownerUser.email} as co-owner for training ${elearning.title}.`
+        );
+
+        const managedElearning = await this.getManagedElearningRecord(elearningId);
+        return mapManagedElearningToView(managedElearning);
+    }
+
+    public async getElearningLogs(
+        elearningId: string,
+        actorRole: AppRole,
+        actorUserId: string
+    ): Promise<ElearningAuditLogView[]> {
+        const elearning = await this.assertElearningWriteAccess(elearningId, actorRole, actorUserId);
+        return elearning.auditLogs.map(mapAuditLogToView);
+    }
+
+    private async assertElearningWriteAccess(elearningId: string, actorRole: AppRole, actorUserId: string): Promise<DbElearning> {
+        assertCanManageElearnings(actorRole);
+        await this.userRepository.findById(actorUserId);
+
+        const elearning = await this.prisma.elearning.findUnique({
+            where: {
+                id: elearningId,
+            },
+            include: elearningInclude,
+        });
+
+        if (!elearning) {
+            throw new NotFoundException(`E-learning with id ${elearningId} was not found.`);
+        }
+
+        if (isSuperuser(actorRole)) {
+            return elearning;
+        }
+
+        const isOwner = elearning.createdById === actorUserId || elearning.owners.some(owner => owner.user.id === actorUserId);
+
+        if (!isOwner) {
+            throw new ForbiddenException("Only training owners or ADMIN can modify this training.");
+        }
+
+        return elearning;
+    }
+
+    private async getManagedElearningRecord(elearningId: string): Promise<DbElearning> {
+        const elearning = await this.prisma.elearning.findUnique({
+            where: {
+                id: elearningId,
+            },
+            include: elearningInclude,
+        });
+
+        if (!elearning) {
+            throw new NotFoundException(`E-learning with id ${elearningId} was not found.`);
+        }
+
+        return elearning;
+    }
+
+    private async createAuditLog(elearningId: string, actorUserId: string, action: string, summary: string): Promise<void> {
+        await this.prisma.elearningAuditLog.create({
+            data: {
+                elearningId,
+                actorUserId,
+                action,
+                summary,
+            },
+        });
     }
 }
 
@@ -268,11 +445,41 @@ function mapDbElearningToView(dbElearning: DbElearning): ElearningView {
         description: dbElearning.description,
         level: dbElearning.level,
         status: dbElearning.status,
+        visibility: dbElearning.visibility,
         publishedAtIso: dbElearning.publishedAt ? dbElearning.publishedAt.toISOString() : null,
         createdAtIso: dbElearning.createdAt.toISOString(),
         updatedAtIso: dbElearning.updatedAt.toISOString(),
         createdById: dbElearning.createdById,
         sections: dbElearning.sections.map(mapDbSectionToView),
+    };
+}
+
+function mapManagedElearningToView(dbElearning: DbElearning): ManagedElearningView {
+    return {
+        ...mapDbElearningToView(dbElearning),
+        owners: dbElearning.owners.map(mapOwnerToView),
+        logs: dbElearning.auditLogs.map(mapAuditLogToView),
+    };
+}
+
+function mapOwnerToView(owner: DbOwner): ElearningOwnerView {
+    return {
+        userId: owner.user.id,
+        name: owner.user.name,
+        email: owner.user.email,
+        role: owner.user.role,
+        addedAtIso: owner.addedAt.toISOString(),
+    };
+}
+
+function mapAuditLogToView(log: DbAuditLog): ElearningAuditLogView {
+    return {
+        id: log.id,
+        actorUserId: log.actorUser.id,
+        actorName: log.actorUser.name,
+        action: log.action,
+        summary: log.summary,
+        createdAtIso: log.createdAt.toISOString(),
     };
 }
 

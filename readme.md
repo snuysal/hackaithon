@@ -39,17 +39,17 @@ Windows PowerShell:
 
 ```powershell
 npm install
-Copy-Item packages/database/.env.example packages/database/.env
+Copy-Item .env.example .env
 ```
 
 macOS / Linux:
 
 ```bash
 npm install
-cp packages/database/.env.example packages/database/.env
+cp .env.example .env
 ```
 
-The database env file must contain a `DATABASE_URL`. The default example points to the local Docker PostgreSQL instance.
+The root `.env` file must contain a `DATABASE_URL`. Prisma and the API both read from this single root env file.
 
 Preferred local mode with PostgreSQL:
 

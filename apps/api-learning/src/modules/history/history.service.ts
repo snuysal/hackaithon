@@ -27,6 +27,7 @@ type DbHistoryEnrollment = {
         description: string;
         level: "JUNIOR" | "MEDIOR" | "SENIOR";
         status: "DRAFT" | "PUBLISHED";
+        visibility: "PUBLIC" | "INTERNAL";
         publishedAt: Date | null;
         sections: Array<{ id: string }>;
     };
@@ -158,6 +159,7 @@ export class HistoryService {
                 description: typedEnrollment.elearning.description,
                 level: typedEnrollment.elearning.level,
                 status: typedEnrollment.elearning.status,
+                visibility: typedEnrollment.elearning.visibility,
                 sectionCount: typedEnrollment.elearning.sections.length,
                 publishedAtIso: typedEnrollment.elearning.publishedAt
                     ? typedEnrollment.elearning.publishedAt.toISOString()
