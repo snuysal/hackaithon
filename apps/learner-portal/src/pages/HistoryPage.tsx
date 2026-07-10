@@ -77,6 +77,11 @@ export function HistoryPage({ onNavigate, session }: HistoryPageProps): ReactEle
 				subtitle="Bekijk waar je aan gewerkt hebt en vier wat je al hebt afgerond."
 				title="Leerhistorie"
 			/>
+			{error ? (
+				<div className="form-alert" role="alert">
+					{error}
+				</div>
+			) : null}
 			<section className="history-highlights" aria-label="Samenvatting">
 				<Card>
 					<span>

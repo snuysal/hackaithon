@@ -1,6 +1,9 @@
 import type { ElearningSummary } from "@hackaithon/shared-types";
 import {
+	cloneElement,
 	useEffect,
+	useId,
+	useRef,
 	type ButtonHTMLAttributes,
 	type InputHTMLAttributes,
 	type ReactElement,
@@ -62,7 +65,7 @@ export function Select({ className = "", children, ...props }: SelectHTMLAttribu
 }
 
 type FormFieldProps = {
-	children: ReactNode;
+	children: ReactElement<FieldControlProps>;
 	error?: string;
 	hint?: string;
 	htmlFor: string;
@@ -70,9 +73,24 @@ type FormFieldProps = {
 	required?: boolean;
 };
 
+type FieldControlProps = {
+	"aria-describedby"?: string;
+	"aria-invalid"?: boolean | "false" | "true";
+	required?: boolean;
+};
+
 export function FormField({ children, error, hint, htmlFor, label, required }: FormFieldProps): ReactElement {
 	const hintId = hint ? `${htmlFor}-hint` : undefined;
 	const errorId = error ? `${htmlFor}-error` : undefined;
+	const describedByValues = [children.props["aria-describedby"], hintId, errorId].filter((value): value is string =>
+		Boolean(value)
+	);
+	const describedBy = describedByValues.length > 0 ? describedByValues.join(" ") : undefined;
+	const control = cloneElement(children, {
+		"aria-describedby": describedBy,
+		"aria-invalid": error ? true : children.props["aria-invalid"],
+		required: required === true || children.props.required === true,
+	});
 
 	return (
 		<div className={`form-field ${error ? "form-field--error" : ""}`}>
@@ -80,7 +98,7 @@ export function FormField({ children, error, hint, htmlFor, label, required }: F
 				{label}
 				{required ? <span aria-hidden="true"> *</span> : null}
 			</label>
-			{children}
+			{control}
 			{hint ? (
 				<p className="form-field__hint" id={hintId}>
 					{hint}
@@ -236,22 +254,54 @@ export function Dialog({
 	size = "default",
 	title,
 }: DialogProps): ReactElement | null {
+	const dialogRef = useRef<HTMLDivElement>(null);
+	const titleId = useId();
+
 	useEffect(() => {
 		if (!isOpen) {
 			return;
 		}
 
+		const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		const dialog = dialogRef.current;
+		const focusableSelector =
+			'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 		function handleKeyDown(event: KeyboardEvent): void {
 			if (event.key === "Escape") {
 				onClose();
+				return;
+			}
+
+			if (event.key !== "Tab" || !dialog) {
+				return;
+			}
+
+			const focusableElements = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+				element => element.getClientRects().length > 0
+			);
+			const firstElement = focusableElements[0];
+			const lastElement = focusableElements.at(-1);
+			if (!firstElement || !lastElement) return;
+
+			if (event.shiftKey && document.activeElement === firstElement) {
+				event.preventDefault();
+				lastElement.focus();
+			} else if (!event.shiftKey && document.activeElement === lastElement) {
+				event.preventDefault();
+				firstElement.focus();
 			}
 		}
 
 		document.body.classList.add("dialog-open");
 		window.addEventListener("keydown", handleKeyDown);
+		window.requestAnimationFrame((): void => {
+			dialog?.querySelector<HTMLElement>(focusableSelector)?.focus();
+		});
 		return (): void => {
 			document.body.classList.remove("dialog-open");
 			window.removeEventListener("keydown", handleKeyDown);
+			previouslyFocused?.focus();
 		};
 	}, [isOpen, onClose]);
 
@@ -262,14 +312,15 @@ export function Dialog({
 	return (
 		<div className="dialog-backdrop" onMouseDown={onClose}>
 			<div
-				aria-labelledby="dialog-title"
+				aria-labelledby={titleId}
 				aria-modal="true"
 				className={`dialog dialog--${size}`}
 				onMouseDown={event => event.stopPropagation()}
+				ref={dialogRef}
 				role="dialog"
 			>
 				<header className="dialog__header">
-					<h2 id="dialog-title">{title}</h2>
+					<h2 id={titleId}>{title}</h2>
 					<button aria-label="Sluiten" className="icon-button" onClick={onClose} type="button">
 						<Icon name="close" />
 					</button>

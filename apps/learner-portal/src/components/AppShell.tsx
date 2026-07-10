@@ -49,8 +49,16 @@ export function AppShell({
 	}, [routePath]);
 
 	useEffect(() => {
+		function handleKeyDown(event: KeyboardEvent): void {
+			if (event.key === "Escape") setIsMobileMenuOpen(false);
+		}
+
 		document.body.classList.toggle("mobile-menu-open", isMobileMenuOpen);
-		return (): void => document.body.classList.remove("mobile-menu-open");
+		if (isMobileMenuOpen) window.addEventListener("keydown", handleKeyDown);
+		return (): void => {
+			document.body.classList.remove("mobile-menu-open");
+			window.removeEventListener("keydown", handleKeyDown);
+		};
 	}, [isMobileMenuOpen]);
 
 	function handleNavigate(path: string): void {
@@ -93,48 +101,13 @@ export function AppShell({
 				/>
 			) : null}
 			<div className="app-shell__body">
-				<header className="topbar">
-					<div className="topbar__inner">
-						<button
-							aria-expanded={isMobileMenuOpen}
-							aria-label="Navigatie openen"
-							className="icon-button topbar__menu"
-							onClick={() => setIsMobileMenuOpen(true)}
-							type="button"
-						>
-							<Icon name="menu" />
-						</button>
-						<div className="topbar__mobile-brand">
-							<Brand compact />
-						</div>
-						<div className="topbar__spacer" />
-						{isBusy ? (
-							<span aria-live="polite" className="topbar__saving">
-								Bezig met bijwerken...
-							</span>
-						) : null}
-						<details className="user-menu">
-							<summary>
-								<span className="avatar">{getInitials(user.name)}</span>
-								<span className="user-menu__copy">
-									<strong>{user.name}</strong>
-									<small>{user.teamName}</small>
-								</span>
-								<Icon name="chevron-down" size={16} />
-							</summary>
-							<div className="user-menu__popover">
-								<div className="user-menu__identity">
-									<strong>{user.name}</strong>
-									<span>{user.email}</span>
-									<StatusBadge status={user.role} />
-								</div>
-								<button className="user-menu__action" onClick={onLogout} type="button">
-									<Icon name="logout" size={18} /> Uitloggen
-								</button>
-							</div>
-						</details>
-					</div>
-				</header>
+				<Header
+					isBusy={isBusy}
+					isMobileMenuOpen={isMobileMenuOpen}
+					onLogout={onLogout}
+					onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+					user={user}
+				/>
 				<main className="main-content" id="main-content" tabIndex={-1}>
 					{children}
 				</main>
@@ -179,8 +152,59 @@ export function Navigation({ items, onNavigate, routePath }: NavigationProps): R
 	);
 }
 
-export function Header(): ReactElement {
-	return <div className="header-placeholder" />;
+type HeaderProps = {
+	isBusy: boolean;
+	isMobileMenuOpen: boolean;
+	onLogout: () => void;
+	onOpenMobileMenu: () => void;
+	user: AuthUserView;
+};
+
+export function Header({ isBusy, isMobileMenuOpen, onLogout, onOpenMobileMenu, user }: HeaderProps): ReactElement {
+	return (
+		<header className="topbar">
+			<div className="topbar__inner">
+				<button
+					aria-expanded={isMobileMenuOpen}
+					aria-label="Navigatie openen"
+					className="icon-button topbar__menu"
+					onClick={onOpenMobileMenu}
+					type="button"
+				>
+					<Icon name="menu" />
+				</button>
+				<div className="topbar__mobile-brand">
+					<Brand compact />
+				</div>
+				<div className="topbar__spacer" />
+				{isBusy ? (
+					<span aria-live="polite" className="topbar__saving">
+						Bezig met bijwerken...
+					</span>
+				) : null}
+				<details className="user-menu">
+					<summary>
+						<span className="avatar">{getInitials(user.name)}</span>
+						<span className="user-menu__copy">
+							<strong>{user.name}</strong>
+							<small>{user.teamName}</small>
+						</span>
+						<Icon name="chevron-down" size={16} />
+					</summary>
+					<div className="user-menu__popover">
+						<div className="user-menu__identity">
+							<strong>{user.name}</strong>
+							<span>{user.email}</span>
+							<StatusBadge status={user.role} />
+						</div>
+						<button className="user-menu__action" onClick={onLogout} type="button">
+							<Icon name="logout" size={18} /> Uitloggen
+						</button>
+					</div>
+				</details>
+			</div>
+		</header>
+	);
 }
 
 function Brand({ compact = false }: { compact?: boolean }): ReactElement {

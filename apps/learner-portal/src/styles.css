@@ -2509,7 +2509,7 @@ p {
 }
 
 .editor-section > header .button {
-	min-height: 2.5rem;
+	min-height: 2.75rem;
 	padding: 0.5rem 0.8rem;
 	font-size: 0.7rem;
 }
@@ -2743,7 +2743,7 @@ p {
 }
 
 .user-actions .button {
-	min-height: 2.5rem;
+	min-height: 2.75rem;
 	padding: 0.5rem 0.75rem;
 	font-size: 0.68rem;
 }
