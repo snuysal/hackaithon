@@ -26,9 +26,15 @@ Agentic AI writes the code. Playwright MCP runs the browser. You watch in awe an
 
 Prerequisites:
 
-- Node.js 20+
+- Node.js 20 or 22 recommended
 - npm
 - Docker Desktop for the preferred PostgreSQL mode
+
+Important:
+
+- The API dev/runtime flow is currently tested on Node 20 and Node 22.
+- Node 24+ can fail during `npm run dev:postgres` with a low-level loader/runtime crash before Nest starts.
+- If that happens, switch to Node 20 or 22 first.
 
 Setup after cloning:
 
