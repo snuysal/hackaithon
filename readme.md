@@ -30,12 +30,6 @@ Prerequisites:
 - npm
 - Docker Desktop for the preferred PostgreSQL mode
 
-Important:
-
-- The API dev/runtime flow is currently tested on Node 20 and Node 22.
-- Node 24+ can fail during `npm run dev:postgres` with a low-level loader/runtime crash before Nest starts.
-- If that happens, switch to Node 20 or 22 first.
-
 Setup after cloning:
 
 1. Install dependencies.
@@ -45,17 +39,17 @@ Windows PowerShell:
 
 ```powershell
 npm install
-Copy-Item .env.example .env
+Copy-Item packages/database/.env.example packages/database/.env
 ```
 
 macOS / Linux:
 
 ```bash
 npm install
-cp .env.example .env
+cp packages/database/.env.example packages/database/.env
 ```
 
-The root `.env` file must contain a `DATABASE_URL`. Prisma and the API both read from this single root env file.
+The database env file must contain a `DATABASE_URL`. The default example points to the local Docker PostgreSQL instance.
 
 Preferred local mode with PostgreSQL:
 
