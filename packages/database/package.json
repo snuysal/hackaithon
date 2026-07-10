@@ -8,16 +8,17 @@
 	},
 	"scripts": {
 		"compile": "tsc --noEmit -p tsconfig.json",
-		"db:push": "prisma db push --schema prisma/schema.prisma",
-		"db:push:local": "prisma db push --schema prisma/schema.local.prisma",
-		"prisma:format": "prisma format --schema prisma/schema.prisma",
-		"prisma:generate": "prisma generate --schema prisma/schema.prisma",
-		"prisma:generate:local": "prisma generate --schema prisma/schema.local.prisma"
+		"db:push": "dotenv -e ../../.env -- prisma db push --schema prisma/schema.prisma",
+		"db:push:local": "dotenv -e ../../.env -- prisma db push --schema prisma/schema.local.prisma",
+		"prisma:format": "dotenv -e ../../.env -- prisma format --schema prisma/schema.prisma",
+		"prisma:generate": "dotenv -e ../../.env -- prisma generate --schema prisma/schema.prisma",
+		"prisma:generate:local": "dotenv -e ../../.env -- prisma generate --schema prisma/schema.local.prisma"
 	},
 	"dependencies": {
 		"@prisma/client": "^6.16.0"
 	},
 	"devDependencies": {
+		"dotenv-cli": "^8.0.0",
 		"prisma": "^6.16.0"
 	}
 }

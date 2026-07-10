@@ -1,3 +1,5 @@
+export const DEFAULT_TEAM_NAMES = ["TAX", "TEAM", "QTA"] as const;
+
 export type SeedUser = {
     name: string;
     email: string;
@@ -19,7 +21,7 @@ export const DEFAULT_SEED_USERS: ReadonlyArray<SeedUser> = [
     {
         name: "System Admin",
         email: "admin@hackaithon.local",
-        teamName: "Core",
+        teamName: "TEAM",
         password: "admin123",
         birthDateIso: "1990-01-01",
         role: "ADMIN",
@@ -28,7 +30,7 @@ export const DEFAULT_SEED_USERS: ReadonlyArray<SeedUser> = [
     {
         name: "Default Trainer",
         email: "trainer@hackaithon.local",
-        teamName: "Core",
+        teamName: "TAX",
         password: "trainer123",
         birthDateIso: "1993-01-01",
         role: "TRAINER",
