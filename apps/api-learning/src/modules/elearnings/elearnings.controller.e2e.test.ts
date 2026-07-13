@@ -57,6 +57,7 @@ void test("should be able to validate e-learning payloads and actor queries over
 		title: "Intro",
 		description: "Beschrijving",
 		level: "JUNIOR",
+		audience: "PARTICIPANT",
 		sections: [{ title: "Start", content: "Welkom" }],
 	};
 	const validResponse = await fetch(`${app.baseUrl}/elearnings?actorRole=TRAINER&actorUserId=%20trainer-1%20`, {
@@ -119,6 +120,7 @@ function createElearningView(): ElearningViewShape {
 		title: "Intro",
 		description: "Beschrijving",
 		level: "JUNIOR",
+		audience: "PARTICIPANT",
 		status: "DRAFT",
 		publishedAtIso: null,
 		createdAtIso: "2026-07-10T10:00:00.000Z",
@@ -134,6 +136,7 @@ type ElearningViewShape = {
 	title: string;
 	description: string;
 	level: "JUNIOR" | "MEDIOR" | "SENIOR";
+	audience: "ALL" | "STAFF" | "PARTICIPANT";
 	status: "DRAFT" | "PUBLISHED";
 	publishedAtIso: string | null;
 	createdAtIso: string;

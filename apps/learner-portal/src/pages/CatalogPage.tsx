@@ -34,7 +34,7 @@ export function CatalogPage({ onNavigate, session }: CatalogPageProps): ReactEle
 		setError("");
 		try {
 			const [courseItems, historyItems] = await Promise.all([
-				listPublicElearnings(),
+				listPublicElearnings(session),
 				canLearn ? listHistory(session) : Promise.resolve([]),
 			]);
 			setCourses(courseItems);

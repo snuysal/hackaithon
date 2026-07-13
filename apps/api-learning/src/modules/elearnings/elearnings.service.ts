@@ -2,13 +2,14 @@ import {
 	estimateElearningDurationMinutes,
 	estimateSectionDurationMinutes,
 	type AppRole,
+	type ElearningAudience,
 	type ElearningSectionView,
 	type ElearningSummary,
 	type ElearningView,
 } from "@hackaithon/shared-types";
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
-import { assertCanManageElearnings, canManageElearnings } from "../../common/superuser-policy.js";
+import { assertCanManageElearnings } from "../../common/superuser-policy.js";
 import { PrismaService } from "../database/prisma.service.js";
 import { UserRepository } from "../users/user.repository.js";
 
@@ -44,6 +45,7 @@ type DbElearning = {
 	title: string;
 	description: string;
 	level: "JUNIOR" | "MEDIOR" | "SENIOR";
+	audience: ElearningAudience;
 	status: "DRAFT" | "PUBLISHED";
 	publishedAt: Date | null;
 	createdAt: Date;
@@ -57,6 +59,7 @@ type DbPublicElearning = {
 	title: string;
 	description: string;
 	level: "JUNIOR" | "MEDIOR" | "SENIOR";
+	audience: ElearningAudience;
 	status: "DRAFT" | "PUBLISHED";
 	publishedAt: Date | null;
 	sections: DbSummarySection[];
@@ -113,6 +116,7 @@ export class ElearningsService {
 				title: payload.title.trim(),
 				description: payload.description.trim(),
 				level: payload.level,
+				audience: payload.audience,
 				createdById: actorUserId,
 				sections: {
 					create: payload.sections.map((section, index) => ({
@@ -166,6 +170,7 @@ export class ElearningsService {
 				title: payload.title?.trim(),
 				description: payload.description?.trim(),
 				level: payload.level,
+				audience: payload.audience,
 			},
 		});
 
@@ -236,10 +241,16 @@ export class ElearningsService {
 		}
 	}
 
-	public async listPublicElearnings(): Promise<ElearningSummary[]> {
+	public async listPublicElearnings(actorRole: AppRole, actorUserId: string): Promise<ElearningSummary[]> {
+		const actorUser = await this.userRepository.findById(actorUserId);
+		assertRoleMatchesStoredUser(actorRole, actorUser.role);
+
 		const elearnings: DbPublicElearning[] = await this.prisma.elearning.findMany({
 			where: {
 				status: "PUBLISHED",
+				audience: {
+					in: getAccessibleAudiences(actorUser.role),
+				},
 			},
 			include: elearningSummaryInclude,
 			orderBy: {
@@ -266,7 +277,8 @@ export class ElearningsService {
 	}
 
 	public async getElearningById(elearningId: string, actorRole: AppRole, actorUserId: string): Promise<ElearningView> {
-		await this.userRepository.findById(actorUserId);
+		const actorUser = await this.userRepository.findById(actorUserId);
+		assertRoleMatchesStoredUser(actorRole, actorUser.role);
 
 		const elearning = await this.prisma.elearning.findUnique({
 			where: {
@@ -279,8 +291,14 @@ export class ElearningsService {
 			throw new NotFoundException(`E-learning with id ${elearningId} was not found.`);
 		}
 
-		if (elearning.status === "DRAFT" && !canManageElearnings(actorRole)) {
+		const canManageElearning = actorRole === "ADMIN" || (actorRole === "TRAINER" && elearning.createdById === actorUserId);
+
+		if (elearning.status === "DRAFT" && !canManageElearning) {
 			throw new ForbiddenException("Draft e-learnings can only be viewed by ADMIN or TRAINER.");
+		}
+
+		if (!isAudienceAccessible(elearning.audience, actorRole) && !canManageElearning) {
+			throw new ForbiddenException("This e-learning is not available for your role.");
 		}
 
 		return mapDbElearningToView(elearning);
@@ -295,6 +313,7 @@ function mapDbElearningToView(dbElearning: DbElearning): ElearningView {
 		title: dbElearning.title,
 		description: dbElearning.description,
 		level: dbElearning.level,
+		audience: dbElearning.audience,
 		status: dbElearning.status,
 		publishedAtIso: dbElearning.publishedAt ? dbElearning.publishedAt.toISOString() : null,
 		createdAtIso: dbElearning.createdAt.toISOString(),
@@ -336,6 +355,7 @@ function mapDbElearningToSummary(elearning: DbPublicElearning): ElearningSummary
 		title: elearning.title,
 		description: elearning.description,
 		level: elearning.level,
+		audience: elearning.audience,
 		status: elearning.status,
 		sectionCount: elearning.sections.length,
 		estimatedDurationMinutes: estimateElearningDurationMinutes({
@@ -345,4 +365,18 @@ function mapDbElearningToSummary(elearning: DbPublicElearning): ElearningSummary
 		}),
 		publishedAtIso: elearning.publishedAt ? elearning.publishedAt.toISOString() : null,
 	};
+}
+
+function getAccessibleAudiences(role: AppRole): ElearningAudience[] {
+	return role === "PARTICIPANT" ? ["ALL", "PARTICIPANT"] : ["ALL", "STAFF"];
+}
+
+function isAudienceAccessible(audience: ElearningAudience, role: AppRole): boolean {
+	return getAccessibleAudiences(role).includes(audience);
+}
+
+function assertRoleMatchesStoredUser(requestedRole: AppRole, storedRole: AppRole): void {
+	if (requestedRole !== storedRole) {
+		throw new ForbiddenException("actorRole does not match the stored role for actorUserId.");
+	}
 }

@@ -3,6 +3,25 @@ import test from "node:test";
 
 import { EnrollmentsService } from "./enrollments.service.js";
 
+void test("should be able to prevent a participant from starting a staff e-learning", async (): Promise<void> => {
+	const prisma = {
+		elearning: {
+			findUnique: (): Promise<{ id: string; status: "PUBLISHED"; audience: "STAFF" }> =>
+				Promise.resolve({ id: "staff-course", status: "PUBLISHED", audience: "STAFF" }),
+		},
+	};
+	const userRepository = {
+		findById: (userId: string): Promise<{ id: string; role: "PARTICIPANT"; approvalStatus: "APPROVED" }> =>
+			Promise.resolve({ id: userId, role: "PARTICIPANT", approvalStatus: "APPROVED" }),
+	};
+	const service = new EnrollmentsService(prisma as never, userRepository as never);
+
+	await assert.rejects(
+		() => service.startEnrollment("staff-course", "PARTICIPANT", "participant-1"),
+		/not available for your role/
+	);
+});
+
 void test("should be able to award the starter badge after the first saved learning step", async (): Promise<void> => {
 	const context = createEnrollmentContext({ existingCompletionDates: [] });
 	const service = new EnrollmentsService(context.prisma as never, context.userRepository as never);

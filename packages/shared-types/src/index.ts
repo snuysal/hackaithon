@@ -14,6 +14,10 @@ export const ELEARNING_STATUSES = ["DRAFT", "PUBLISHED"] as const;
 
 export type ElearningStatus = (typeof ELEARNING_STATUSES)[number];
 
+export const ELEARNING_AUDIENCES = ["ALL", "STAFF", "PARTICIPANT"] as const;
+
+export type ElearningAudience = (typeof ELEARNING_AUDIENCES)[number];
+
 export const ASSIGNMENT_TYPES = ["QUIZ", "OPEN_TEXT"] as const;
 
 export type AssignmentType = (typeof ASSIGNMENT_TYPES)[number];
@@ -98,6 +102,7 @@ export type CreateElearningRequest = {
     title: string;
     description: string;
     level: ElearningLevel;
+    audience: ElearningAudience;
     sections: ElearningSectionInput[];
 };
 
@@ -105,6 +110,7 @@ export type UpdateElearningRequest = {
     title?: string;
     description?: string;
     level?: ElearningLevel;
+    audience?: ElearningAudience;
     sections?: ElearningSectionInput[];
 };
 
@@ -132,6 +138,7 @@ export type ElearningView = {
     title: string;
     description: string;
     level: ElearningLevel;
+    audience: ElearningAudience;
     status: ElearningStatus;
     publishedAtIso: string | null;
     createdAtIso: string;
@@ -146,6 +153,7 @@ export type ElearningSummary = {
     title: string;
     description: string;
     level: ElearningLevel;
+    audience: ElearningAudience;
     status: ElearningStatus;
     sectionCount: number;
     estimatedDurationMinutes: number;

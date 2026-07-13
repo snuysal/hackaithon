@@ -1,4 +1,4 @@
-import { DEFAULT_SEED_BADGES, DEFAULT_SEED_USERS } from "@hackaithon/database";
+import { DEFAULT_SEED_BADGES, DEFAULT_SEED_ELEARNINGS, DEFAULT_SEED_USERS } from "@hackaithon/database";
 import type { ApprovalStatus, AppRole } from "@hackaithon/shared-types";
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 
@@ -273,6 +273,83 @@ export class UserRepository {
                     ruleJson: badge.ruleJson,
                 },
             });
+        }
+
+        const seedAuthor = await this.prisma.user.findUniqueOrThrow({
+            where: {
+                email: "admin@hackaithon.local",
+            },
+        });
+
+        for (const elearning of DEFAULT_SEED_ELEARNINGS) {
+            await this.prisma.elearning.upsert({
+                where: {
+                    id: elearning.id,
+                },
+                create: {
+                    id: elearning.id,
+                    title: elearning.title,
+                    description: elearning.description,
+                    level: elearning.level,
+                    audience: elearning.audience,
+                    status: "PUBLISHED",
+                    publishedAt: new Date(),
+                    createdById: seedAuthor.id,
+                },
+                update: {
+                    title: elearning.title,
+                    description: elearning.description,
+                    level: elearning.level,
+                    audience: elearning.audience,
+                    status: "PUBLISHED",
+                    createdById: seedAuthor.id,
+                },
+            });
+
+            for (const [orderIndex, section] of elearning.sections.entries()) {
+                await this.prisma.elearningSection.upsert({
+                    where: {
+                        id: section.id,
+                    },
+                    create: {
+                        id: section.id,
+                        elearningId: elearning.id,
+                        title: section.title,
+                        content: section.content,
+                        orderIndex,
+                    },
+                    update: {
+                        elearningId: elearning.id,
+                        title: section.title,
+                        content: section.content,
+                        orderIndex,
+                    },
+                });
+
+                if (section.assignment) {
+                    await this.prisma.assignment.upsert({
+                        where: {
+                            sectionId: section.id,
+                        },
+                        create: {
+                            id: `${section.id}-assignment`,
+                            sectionId: section.id,
+                            assignmentType: section.assignment.assignmentType,
+                            prompt: section.assignment.prompt,
+                            optionsJson: section.assignment.optionsJson ?? null,
+                            correctAnswerJson: section.assignment.correctAnswerJson ?? null,
+                            points: section.assignment.points,
+                        },
+                        update: {
+                            assignmentType: section.assignment.assignmentType,
+                            prompt: section.assignment.prompt,
+                            optionsJson: section.assignment.optionsJson ?? null,
+                            correctAnswerJson: section.assignment.correctAnswerJson ?? null,
+                            points: section.assignment.points,
+                        },
+                    });
+                }
+            }
         }
     }
 }

@@ -62,6 +62,12 @@ Default seeded users:
 - Admin: `admin@hackaithon.local` / `admin123`
 - Trainer: `trainer@hackaithon.local` / `trainer123`
 
+Default onboarding e-learnings:
+
+- `Werken met Cerios Academy` is available to trainers and admins and explains navigation, content creation, publishing and user management.
+- `Welkom bij Cerios Academy` is available to participants and explains the dashboard, catalog, learning flow and gamification.
+- Published e-learnings are filtered by audience. Content managers select `Students`, `Trainers and admins` or `Everyone` in the e-learning editor.
+
 Stop services:
 
 ```bash

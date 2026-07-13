@@ -179,6 +179,7 @@ type StatusBadgeProps = {
 
 const statusLabels: Record<string, string> = {
 	APPROVED: "Goedgekeurd",
+	ALL: "Iedereen",
 	COMPLETED: "Afgerond",
 	DRAFT: "Concept",
 	IN_PROGRESS: "Bezig",
@@ -190,6 +191,7 @@ const statusLabels: Record<string, string> = {
 	PUBLISHED: "Gepubliceerd",
 	REJECTED: "Afgewezen",
 	SENIOR: "Expert",
+	STAFF: "Trainers en beheerders",
 	TRAINER: "Trainer",
 	ADMIN: "Beheerder",
 };

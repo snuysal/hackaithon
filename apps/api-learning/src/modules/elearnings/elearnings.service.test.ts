@@ -17,6 +17,7 @@ void test(
 							title: "Security basics",
 							description: repeatWord("intro", 220),
 							level: "MEDIOR",
+							audience: "PARTICIPANT",
 							status: "DRAFT",
 							publishedAt: null,
 							sections: [
@@ -58,6 +59,7 @@ void test("should be able to block participant access to draft e-learnings by id
 					title: "Security basics",
 					description: "Beschrijving",
 					level: "JUNIOR",
+					audience: "PARTICIPANT",
 					status: "DRAFT",
 					publishedAt: null,
 					createdAt: new Date("2026-07-10T10:00:00.000Z"),
@@ -76,7 +78,8 @@ void test("should be able to block participant access to draft e-learnings by id
 		},
 	};
 	const userRepository = {
-		findById: (): Promise<{ id: string }> => Promise.resolve({ id: "participant-1" }),
+		findById: (userId: string): Promise<{ id: string; role: "ADMIN" | "PARTICIPANT" }> =>
+			Promise.resolve({ id: userId, role: userId === "admin-1" ? "ADMIN" : "PARTICIPANT" }),
 	};
 	const service = new ElearningsService(prisma as never, userRepository as never);
 
@@ -85,9 +88,36 @@ void test("should be able to block participant access to draft e-learnings by id
 		/Draft e-learnings can only be viewed/
 	);
 
-	const adminView = await service.getElearningById("course-1", "ADMIN", "participant-1");
+	const adminView = await service.getElearningById("course-1", "ADMIN", "admin-1");
 	assert.equal(adminView.estimatedDurationMinutes, 5);
 	assert.equal(adminView.sections[0]?.estimatedDurationMinutes, 3);
+});
+
+void test("should be able to return only published e-learnings for the participant audience", async (): Promise<void> => {
+	let capturedWhere: unknown;
+	const prisma = {
+		elearning: {
+			findMany: ({ where }: { where: unknown }): Promise<ManagedElearningRecord[]> => {
+				capturedWhere = where;
+				return Promise.resolve([]);
+			},
+		},
+	};
+	const userRepository = {
+		findById: (userId: string): Promise<{ id: string; role: "PARTICIPANT" }> =>
+			Promise.resolve({ id: userId, role: "PARTICIPANT" }),
+	};
+	const service = new ElearningsService(prisma as never, userRepository as never);
+
+	const result = await service.listPublicElearnings("PARTICIPANT", "participant-1");
+
+	assert.deepEqual(result, []);
+	assert.deepEqual(capturedWhere, {
+		status: "PUBLISHED",
+		audience: {
+			in: ["ALL", "PARTICIPANT"],
+		},
+	});
 });
 
 function repeatWord(word: string, count: number): string {
@@ -99,6 +129,7 @@ type ManagedElearningRecord = {
 	title: string;
 	description: string;
 	level: "JUNIOR" | "MEDIOR" | "SENIOR";
+	audience: "ALL" | "STAFF" | "PARTICIPANT";
 	status: "DRAFT" | "PUBLISHED";
 	publishedAt: Date | null;
 	sections: Array<{
@@ -118,6 +149,7 @@ type FullElearningRecord = {
 	title: string;
 	description: string;
 	level: "JUNIOR" | "MEDIOR" | "SENIOR";
+	audience: "ALL" | "STAFF" | "PARTICIPANT";
 	status: "DRAFT" | "PUBLISHED";
 	publishedAt: Date | null;
 	createdAt: Date;

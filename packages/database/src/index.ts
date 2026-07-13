@@ -10,5 +10,5 @@ export function createDatabasePackageStatus(provider: "postgresql" | "sqlite"): 
     };
 }
 
-export { DEFAULT_SEED_BADGES, DEFAULT_SEED_USERS } from "./seed-data.js";
+export { DEFAULT_SEED_BADGES, DEFAULT_SEED_ELEARNINGS, DEFAULT_SEED_USERS } from "./seed-data.js";
 export { PrismaClient } from "@prisma/client";

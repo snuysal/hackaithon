@@ -14,6 +14,7 @@ void test("should be able to render the estimated duration from the API model in
 				title: "Security Basics",
 				description: "Leer de basis van veilig ontwikkelen.",
 				level: "MEDIOR",
+				audience: "PARTICIPANT",
 				status: "PUBLISHED",
 				sectionCount: 4,
 				estimatedDurationMinutes: 37,

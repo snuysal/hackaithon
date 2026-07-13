@@ -34,7 +34,7 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 		setError("");
 		try {
 			const [courseItems, historyItems, gamificationSummary] = await Promise.all([
-				listPublicElearnings(),
+				listPublicElearnings(session),
 				canLearn ? listHistory(session) : Promise.resolve([]),
 				canLearn ? getGamificationSummary(session) : Promise.resolve(null),
 			]);

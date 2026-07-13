@@ -32,6 +32,7 @@ type DbHistoryEnrollment = {
         title: string;
         description: string;
         level: "JUNIOR" | "MEDIOR" | "SENIOR";
+        audience: "ALL" | "STAFF" | "PARTICIPANT";
         status: "DRAFT" | "PUBLISHED";
         publishedAt: Date | null;
         sections: Array<{
@@ -255,6 +256,7 @@ export class HistoryService {
                 title: typedEnrollment.elearning.title,
                 description: typedEnrollment.elearning.description,
                 level: typedEnrollment.elearning.level,
+                audience: typedEnrollment.elearning.audience,
                 status: typedEnrollment.elearning.status,
                 sectionCount: typedEnrollment.elearning.sections.length,
                 estimatedDurationMinutes: estimateElearningDurationMinutes({

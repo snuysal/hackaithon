@@ -50,8 +50,14 @@ export class ElearningsController {
 	}
 
 	@Get("public")
-	public listPublicElearnings(): Promise<ElearningSummary[]> {
-		return this.elearningsService.listPublicElearnings();
+	public listPublicElearnings(
+		@Query("actorRole") actorRoleParam: unknown,
+		@Query("actorUserId") actorUserIdParam: unknown
+	): Promise<ElearningSummary[]> {
+		const actorRole = parseActorRole(actorRoleParam);
+		const actorUserId = parseRequiredUserId(actorUserIdParam);
+
+		return this.elearningsService.listPublicElearnings(actorRole, actorUserId);
 	}
 
 	@Get("manage")

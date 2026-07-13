@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getElearning, getGamificationSummary, readStoredSession, storeSession } from "./api.js";
+import { getElearning, getGamificationSummary, listPublicElearnings, readStoredSession, storeSession } from "./api.js";
 
 void test("should be able to store and restore a valid session while clearing invalid session data", (): void => {
 	const storage = createLocalStorage();
@@ -44,6 +44,7 @@ void test("should be able to encode API path parameters and actor context correc
 					title: "Intro",
 					description: "Beschrijving",
 					level: "JUNIOR",
+					audience: "PARTICIPANT",
 					status: "DRAFT",
 					publishedAtIso: null,
 					createdAtIso: "2026-07-10T10:00:00.000Z",
@@ -89,6 +90,37 @@ void test("should be able to encode API path parameters and actor context correc
 	const headers = calls[0]?.init?.headers;
 	assert.ok(headers instanceof Headers);
 	assert.equal(headers.get("Content-Type"), "application/json");
+});
+
+void test("should be able to request the role-specific catalog with the current actor context", async (): Promise<void> => {
+	const originalFetch = globalThis.fetch;
+	const calls: string[] = [];
+	globalThis.fetch = (input: string | URL | Request): Promise<Response> => {
+		calls.push(typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url);
+		return Promise.resolve(new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } }));
+	};
+
+	try {
+		await listPublicElearnings({
+			sessionToken: "token-1",
+			user: {
+				id: "participant-1",
+				name: "Participant",
+				email: "participant@example.com",
+				teamName: "Academy",
+				role: "PARTICIPANT",
+				approvalStatus: "APPROVED",
+				birthDateIso: "1990-01-01",
+				canAccessLearning: true,
+			},
+		});
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+
+	assert.deepEqual(calls, [
+		"http://localhost:3000/elearnings/public?actorRole=PARTICIPANT&actorUserId=participant-1",
+	]);
 });
 
 void test("should be able to translate backend and network failures into user-friendly errors", async (): Promise<void> => {

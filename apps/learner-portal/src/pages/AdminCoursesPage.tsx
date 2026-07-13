@@ -1,6 +1,7 @@
 import type {
 	AssignmentType,
 	CreateElearningRequest,
+	ElearningAudience,
 	ElearningLevel,
 	ElearningSummary,
 	ElearningView,
@@ -143,6 +144,7 @@ export function AdminCoursesPage({ onFeedback, session }: AdminCoursesPageProps)
 								<div>
 									<StatusBadge status={course.status} />
 									<StatusBadge status={course.level} />
+									<StatusBadge status={course.audience} />
 								</div>
 								<h2>{course.title}</h2>
 								<p>{course.description}</p>
@@ -214,7 +216,9 @@ export function AdminCoursesPage({ onFeedback, session }: AdminCoursesPageProps)
 				title="E-learning publiceren?"
 			>
 				<p>
-					<strong>{publishTarget?.title}</strong> wordt direct zichtbaar voor alle goedgekeurde deelnemers.
+					<strong>{publishTarget?.title}</strong> wordt direct zichtbaar voor {getAudienceDescription(
+						publishTarget?.audience ?? "ALL"
+					)}.
 				</p>
 			</Dialog>
 		</>
@@ -235,6 +239,7 @@ type DraftSection = {
 };
 
 type CourseDraft = {
+	audience: ElearningAudience;
 	description: string;
 	level: ElearningLevel;
 	sections: DraftSection[];
@@ -377,6 +382,24 @@ function CourseEditor({ course, onCancel, onFeedback, onSaved, session }: Course
 							<option value="SENIOR">Expert</option>
 						</Select>
 					</FormField>
+					<FormField
+						hint="Alleen gebruikers uit deze doelgroep zien de gepubliceerde training in hun catalogus."
+						htmlFor="course-audience"
+						label="Doelgroep"
+						required
+					>
+						<Select
+							id="course-audience"
+							onChange={event =>
+								setDraft(current => ({ ...current, audience: event.target.value as ElearningAudience }))
+							}
+							value={draft.audience}
+						>
+							<option value="PARTICIPANT">Studenten</option>
+							<option value="STAFF">Trainers en beheerders</option>
+							<option value="ALL">Iedereen</option>
+						</Select>
+					</FormField>
 				</div>
 			) : null}
 
@@ -509,6 +532,7 @@ function CourseEditor({ course, onCancel, onFeedback, onSaved, session }: Course
 					<Card className="review-card">
 						<div>
 							<StatusBadge status={draft.level} />
+							<StatusBadge status={draft.audience} />
 							<StatusBadge status={course?.status ?? "DRAFT"} />
 						</div>
 						<h2>{draft.title}</h2>
@@ -591,8 +615,16 @@ function createDraftSection(index: number): DraftSection {
 }
 
 function buildDraft(course: ElearningView | null): CourseDraft {
-	if (!course) return { description: "", level: "JUNIOR", sections: [createDraftSection(0)], title: "" };
+	if (!course)
+		return {
+			audience: "PARTICIPANT",
+			description: "",
+			level: "JUNIOR",
+			sections: [createDraftSection(0)],
+			title: "",
+		};
 	return {
+		audience: course.audience,
 		description: course.description,
 		level: course.level,
 		sections: course.sections.map((section, index) => ({
@@ -627,6 +659,7 @@ function validateStep(draft: CourseDraft, step: number): string {
 
 function buildPayload(draft: CourseDraft): CreateElearningRequest {
 	return {
+		audience: draft.audience,
 		description: draft.description.trim(),
 		level: draft.level,
 		sections: draft.sections.map(section => ({
@@ -649,6 +682,12 @@ function buildPayload(draft: CourseDraft): CreateElearningRequest {
 		})),
 		title: draft.title.trim(),
 	};
+}
+
+function getAudienceDescription(audience: ElearningAudience): string {
+	if (audience === "PARTICIPANT") return "goedgekeurde studenten";
+	if (audience === "STAFF") return "trainers en beheerders";
+	return "alle goedgekeurde gebruikers";
 }
 
 function estimateDraftDurationMinutes(draft: CourseDraft): number {

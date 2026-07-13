@@ -69,8 +69,8 @@ export async function getCurrentUser(session: SessionState): Promise<AuthUserVie
 	return callApi<AuthUserView>(`/auth/me?userId=${encodeURIComponent(session.user.id)}`);
 }
 
-export async function listPublicElearnings(): Promise<ElearningSummary[]> {
-	return callApi<ElearningSummary[]>("/elearnings/public");
+export async function listPublicElearnings(session: SessionState): Promise<ElearningSummary[]> {
+	return callApi<ElearningSummary[]>(`/elearnings/public?${buildActorQuery(session)}`);
 }
 
 export async function listManagedElearnings(session: SessionState): Promise<ElearningSummary[]> {

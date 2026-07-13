@@ -30,6 +30,12 @@ enum ElearningStatus {
 	PUBLISHED
 }
 
+enum ElearningAudience {
+	ALL
+	STAFF
+	PARTICIPANT
+}
+
 enum EnrollmentStatus {
 	NOT_STARTED
 	IN_PROGRESS
@@ -85,6 +91,7 @@ model Elearning {
 	title       String
 	description String
 	level       ElearningLevel
+	audience    ElearningAudience @default(ALL)
 	status      ElearningStatus @default(DRAFT)
 	publishedAt DateTime?
 	createdAt   DateTime        @default(now())

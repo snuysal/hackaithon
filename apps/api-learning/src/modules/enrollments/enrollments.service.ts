@@ -82,6 +82,7 @@ export class EnrollmentsService {
             select: {
                 id: true,
                 status: true,
+                audience: true,
             },
         });
 
@@ -91,6 +92,10 @@ export class EnrollmentsService {
 
         if (elearning.status === "DRAFT" && actorUser.role === "PARTICIPANT") {
             throw new ForbiddenException("Draft e-learnings cannot be started by participants.");
+        }
+
+        if (!isElearningAvailableForRole(elearning.audience, actorUser.role)) {
+            throw new ForbiddenException("This e-learning is not available for your role.");
         }
 
         const existingEnrollment = await this.prisma.enrollment.findUnique({
@@ -473,4 +478,15 @@ function assertEnrollmentAccess(actorUserId: string, actorRole: AppRole, enrollm
     if (actorUserId !== enrollmentOwnerUserId) {
         throw new ForbiddenException("You cannot access another participant's enrollment.");
     }
+}
+
+function isElearningAvailableForRole(
+    audience: "ALL" | "STAFF" | "PARTICIPANT",
+    role: AppRole
+): boolean {
+    if (audience === "ALL") {
+        return true;
+    }
+
+    return audience === "STAFF" ? role === "ADMIN" || role === "TRAINER" : role === "PARTICIPANT";
 }
