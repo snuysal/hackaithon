@@ -161,7 +161,7 @@ void test("should be able to request the gamification summary with the current a
 		globalThis.fetch = originalFetch;
 	}
 
-	assert.deepEqual(calls, ["http://localhost:3000/me/history/summary?actorRole=PARTICIPANT&actorUserId=participant-1"]);
+	assert.deepEqual(calls, ["http://localhost:3000/me/history/gamification/summary?actorRole=PARTICIPANT&actorUserId=participant-1"]);
 });
 
 function installLocalStorage(storage: StorageDouble): void {

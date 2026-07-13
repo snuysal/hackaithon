@@ -136,7 +136,7 @@ export async function listHistory(session: SessionState): Promise<HistorySummary
 }
 
 export async function getGamificationSummary(session: SessionState): Promise<GamificationSummaryView> {
-	return callApi<GamificationSummaryView>(`/me/history/summary?${buildActorQuery(session)}`);
+	return callApi<GamificationSummaryView>(`/me/history/gamification/summary?${buildActorQuery(session)}`);
 }
 
 export async function getHistoryDetail(session: SessionState, enrollmentId: string): Promise<HistoryDetailView> {

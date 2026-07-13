@@ -20,7 +20,7 @@ export class HistoryController {
         return this.historyService.listMyHistory(actorRole, actorUserId);
     }
 
-    @Get("summary")
+    @Get("gamification/summary")
     public getMyGamificationSummary(
         @Query("actorRole") actorRoleParam: unknown,
         @Query("actorUserId") actorUserIdParam: unknown

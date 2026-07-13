@@ -7,6 +7,7 @@ import { HistoryService } from "./history.service.js";
 
 void test("should be able to validate actor context and expose the gamification summary over HTTP", async (t: TestContext): Promise<void> => {
 	const calls: Array<{ actorRole: string; actorUserId: string }> = [];
+	const detailCalls: string[] = [];
 	const app = await createHttpTestApp({
 		controllers: [HistoryController],
 		providers: [
@@ -25,24 +26,28 @@ void test("should be able to validate actor context and expose the gamification 
 							nextBadge: null,
 						});
 					},
-					getHistoryDetail: (): Promise<unknown> => Promise.resolve(null),
+					getHistoryDetail: (enrollmentId: string): Promise<unknown> => {
+						detailCalls.push(enrollmentId);
+						return Promise.resolve(null);
+					},
 				},
 			},
 		],
 	});
 	t.after((): Promise<void> => app.close());
 
-	const invalidResponse = await fetch(`${app.baseUrl}/me/history/summary?actorRole=PARTICIPANT`);
+	const invalidResponse = await fetch(`${app.baseUrl}/me/history/gamification/summary?actorRole=PARTICIPANT`);
 
 	assert.equal(invalidResponse.status, 400);
 	assert.match(messageText(await readJson(invalidResponse)), /actorUserId/i);
 
 	const validResponse = await fetch(
-		`${app.baseUrl}/me/history/summary?actorRole=PARTICIPANT&actorUserId=participant-1`
+		`${app.baseUrl}/me/history/gamification/summary?actorRole=PARTICIPANT&actorUserId=participant-1`
 	);
 
 	assert.equal(validResponse.status, 200);
 	assert.deepEqual(calls, [{ actorRole: "PARTICIPANT", actorUserId: "participant-1" }]);
+	assert.deepEqual(detailCalls, []);
 	assert.deepEqual(await readJson(validResponse), {
 		totalScore: 42,
 		currentStreakDays: 2,
