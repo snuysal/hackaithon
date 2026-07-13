@@ -1,0 +1,166 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { getElearning, readStoredSession, storeSession } from "./api.js";
+
+void test("session helpers round-trip valid data and clear invalid storage", (): void => {
+	const storage = createLocalStorage();
+	installLocalStorage(storage);
+
+	const session = {
+		sessionToken: "token-1",
+		user: {
+			id: "user-1",
+			name: "Test User",
+			email: "test@example.com",
+			teamName: "QA Guild",
+			role: "TRAINER" as const,
+			approvalStatus: "APPROVED" as const,
+			birthDateIso: "1990-01-01",
+			canAccessLearning: true,
+		},
+	};
+
+	storeSession(session);
+	assert.deepEqual(readStoredSession(), session);
+
+	storage.setItem("hackaithon.session", "{geen-json");
+	assert.equal(readStoredSession(), null);
+	assert.equal(storage.getItem("hackaithon.session"), null);
+});
+
+void test("API helpers encode path parameters and actor context correctly", async (): Promise<void> => {
+	const originalFetch = globalThis.fetch;
+	const calls: Array<{ input: string; init?: RequestInit }> = [];
+
+	const fetchMock: typeof fetch = (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+		const requestUrl =
+			typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+		calls.push({ input: requestUrl, init });
+		return Promise.resolve(
+			new Response(
+				JSON.stringify({
+					id: "course-1",
+					title: "Intro",
+					description: "Beschrijving",
+					level: "JUNIOR",
+					status: "DRAFT",
+					publishedAtIso: null,
+					createdAtIso: "2026-07-10T10:00:00.000Z",
+					updatedAtIso: "2026-07-10T10:00:00.000Z",
+					createdById: "trainer-1",
+					estimatedDurationMinutes: 5,
+					sections: [],
+				}),
+				{
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}
+			)
+		);
+	};
+
+	globalThis.fetch = fetchMock;
+
+	try {
+		await getElearning(
+			{
+				sessionToken: "token-1",
+				user: {
+					id: "trainer 1",
+					name: "Trainer",
+					email: "trainer@example.com",
+					teamName: "Academy",
+					role: "TRAINER",
+					approvalStatus: "APPROVED",
+					birthDateIso: "1990-01-01",
+					canAccessLearning: true,
+				},
+			},
+			"course/1"
+		);
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+
+	assert.equal(calls.length, 1);
+	assert.equal(calls[0]?.input, "http://localhost:3000/elearnings/course%2F1?actorRole=TRAINER&actorUserId=trainer+1");
+
+	const headers = calls[0]?.init?.headers;
+	assert.ok(headers instanceof Headers);
+	assert.equal(headers.get("Content-Type"), "application/json");
+});
+
+void test("API helpers translate backend and network failures into user-friendly errors", async (): Promise<void> => {
+	const originalFetch = globalThis.fetch;
+
+	globalThis.fetch = (): Promise<Response> =>
+		Promise.resolve(
+			new Response(JSON.stringify({ message: ["Eerste fout", "Tweede fout"] }), {
+				status: 400,
+				headers: { "Content-Type": "application/json" },
+			})
+		);
+
+	try {
+		await assert.rejects(() => getCourse("course-1"), /Eerste fout, Tweede fout/);
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+
+	globalThis.fetch = (): Promise<Response> => Promise.reject(new Error("connect ECONNREFUSED"));
+
+	try {
+		await assert.rejects(() => getCourse("course-1"), /Academy-server is niet bereikbaar/);
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+});
+
+function installLocalStorage(storage: StorageDouble): void {
+	Object.defineProperty(globalThis, "localStorage", {
+		value: storage,
+		configurable: true,
+	});
+}
+
+function createLocalStorage(): StorageDouble {
+	const values = new Map<string, string>();
+
+	return {
+		getItem(key: string): string | null {
+			return values.has(key) ? values.get(key) ?? null : null;
+		},
+		setItem(key: string, value: string): void {
+			values.set(key, value);
+		},
+		removeItem(key: string): void {
+			values.delete(key);
+		},
+	};
+}
+
+function getCourse(elearningId: string): Promise<unknown> {
+	return getElearning(
+		{
+			sessionToken: "token-1",
+			user: {
+				id: "trainer-1",
+				name: "Trainer",
+				email: "trainer@example.com",
+				teamName: "Academy",
+				role: "TRAINER",
+				approvalStatus: "APPROVED",
+				birthDateIso: "1990-01-01",
+				canAccessLearning: true,
+			},
+		},
+		elearningId
+	);
+}
+
+type StorageDouble = {
+	getItem: (key: string) => string | null;
+	setItem: (key: string, value: string) => void;
+	removeItem: (key: string) => void;
+};

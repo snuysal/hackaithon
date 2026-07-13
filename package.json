@@ -22,6 +22,11 @@
 		"format:check": "oxfmt --check",
 		"lint": "oxlint --type-aware apps packages",
 		"lint:fix": "oxlint --type-aware --fix apps packages",
+		"test": "node scripts/run-tests.mjs",
+		"test:api": "node scripts/run-tests.mjs --path apps/api-learning --path packages/shared-types",
+		"test:portal": "node scripts/run-tests.mjs --path apps/learner-portal --path packages/shared-types",
+		"test:watch": "node scripts/run-tests.mjs --watch",
+		"test:coverage": "node scripts/run-tests.mjs --experimental-test-coverage",
 		"update-all-packages": "npm-check-updates -u && npm i"
 	},
 	"devDependencies": {
