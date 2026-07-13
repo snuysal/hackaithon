@@ -19,3 +19,20 @@ void test("should be able to keep all onboarding seed identifiers unique for ide
     assert.equal(new Set(courseIds).size, courseIds.length);
     assert.equal(new Set(sectionIds).size, sectionIds.length);
 });
+
+void test("should be able to include reviewable open questions in every onboarding e-learning", (): void => {
+    assert.ok(
+        DEFAULT_SEED_ELEARNINGS.every(elearning =>
+            elearning.sections.some(section => section.assignment?.assignmentType === "OPEN_TEXT")
+        )
+    );
+});
+
+void test("should be able to assign the participant onboarding to the default trainer for review", (): void => {
+    const participantOnboarding = DEFAULT_SEED_ELEARNINGS.find(
+        elearning => elearning.id === "seed-elearning-participant-introduction"
+    );
+
+    assert.equal(participantOnboarding?.createdByEmail, "trainer@hackaithon.local");
+    assert.ok(participantOnboarding?.sections.some(section => section.content.includes("Wacht op nakijken")));
+});

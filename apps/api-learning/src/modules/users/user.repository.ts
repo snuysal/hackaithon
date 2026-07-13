@@ -275,13 +275,11 @@ export class UserRepository {
             });
         }
 
-        const seedAuthor = await this.prisma.user.findUniqueOrThrow({
-            where: {
-                email: "admin@hackaithon.local",
-            },
-        });
+        const seedAuthorsByEmail = new Map<string, { id: string }>();
 
         for (const elearning of DEFAULT_SEED_ELEARNINGS) {
+            const seedAuthor = await this.getSeedAuthor(elearning.createdByEmail ?? "admin@hackaithon.local", seedAuthorsByEmail);
+
             await this.prisma.elearning.upsert({
                 where: {
                     id: elearning.id,
@@ -303,6 +301,18 @@ export class UserRepository {
                     audience: elearning.audience,
                     status: "PUBLISHED",
                     createdById: seedAuthor.id,
+                },
+            });
+
+            const seedSectionIds = elearning.sections.map(section => section.id);
+            await this.prisma.elearningSection.updateMany({
+                where: {
+                    elearningId: elearning.id,
+                },
+                data: {
+                    orderIndex: {
+                        increment: 1000,
+                    },
                 },
             });
 
@@ -350,7 +360,35 @@ export class UserRepository {
                     });
                 }
             }
+
+            await this.prisma.elearningSection.deleteMany({
+                where: {
+                    elearningId: elearning.id,
+                    id: {
+                        notIn: seedSectionIds,
+                    },
+                },
+            });
         }
+    }
+
+    private async getSeedAuthor(email: string, cache: Map<string, { id: string }>): Promise<{ id: string }> {
+        const normalizedEmail = normalizeEmail(email);
+        const cachedAuthor = cache.get(normalizedEmail);
+        if (cachedAuthor) {
+            return cachedAuthor;
+        }
+
+        const seedAuthor = await this.prisma.user.findUniqueOrThrow({
+            where: {
+                email: normalizedEmail,
+            },
+            select: {
+                id: true,
+            },
+        });
+        cache.set(normalizedEmail, seedAuthor);
+        return seedAuthor;
     }
 }
 
