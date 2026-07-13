@@ -1,4 +1,4 @@
-import type { ElearningSummary, HistorySummaryItem } from "@hackaithon/shared-types";
+import type { BadgeGoalView, ElearningSummary, GamificationSummaryView, HistorySummaryItem } from "@hackaithon/shared-types";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 
 import { Icon } from "../components/Icon.js";
@@ -12,7 +12,7 @@ import {
 	PageHeader,
 	StatusBadge,
 } from "../components/ui.js";
-import { listHistory, listPublicElearnings } from "../lib/api.js";
+import { getGamificationSummary, listHistory, listPublicElearnings } from "../lib/api.js";
 import type { SessionState } from "../types.js";
 
 type DashboardPageProps = {
@@ -20,8 +20,10 @@ type DashboardPageProps = {
 	session: SessionState;
 };
 
+// oxlint-disable-next-line eslint/complexity -- Dashboard intentionally combines approval, progress and motivation states.
 export function DashboardPage({ onNavigate, session }: DashboardPageProps): ReactElement {
 	const [courses, setCourses] = useState<ElearningSummary[]>([]);
+	const [gamification, setGamification] = useState<GamificationSummaryView | null>(null);
 	const [history, setHistory] = useState<HistorySummaryItem[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -31,12 +33,14 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 		setIsLoading(true);
 		setError("");
 		try {
-			const [courseItems, historyItems] = await Promise.all([
+			const [courseItems, historyItems, gamificationSummary] = await Promise.all([
 				listPublicElearnings(),
 				canLearn ? listHistory(session) : Promise.resolve([]),
+				canLearn ? getGamificationSummary(session) : Promise.resolve(null),
 			]);
 			setCourses(courseItems);
 			setHistory(historyItems);
+			setGamification(gamificationSummary);
 		} catch (caughtError: unknown) {
 			setError((caughtError as Error).message);
 		} finally {
@@ -50,7 +54,7 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 
 	const activeHistory = history.filter(item => item.status === "IN_PROGRESS");
 	const completedHistory = history.filter(item => item.status === "COMPLETED");
-	const totalScore = history.reduce((sum, item) => sum + item.totalScore, 0);
+	const totalScore = gamification?.totalScore ?? history.reduce((sum, item) => sum + item.totalScore, 0);
 	const activeCourses = useMemo(
 		() =>
 			activeHistory
@@ -125,9 +129,9 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 							<p className="eyebrow">Verder leren</p>
 							<h2 id="active-courses-title">Actieve e-learnings</h2>
 						</div>
-						<Button onClick={() => onNavigate("/catalogus")} variant="ghost" icon="arrow-right" iconPosition="end">
-							Alles bekijken
-						</Button>
+					<Button onClick={() => onNavigate("/catalogus")} variant="ghost" icon="arrow-right" iconPosition="end">
+						Alles bekijken
+					</Button>
 					</div>
 					{activeCourses.length > 0 ? (
 						<div className="course-grid course-grid--dashboard">
@@ -193,6 +197,72 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 						) : null}
 					</Card>
 
+					{canLearn && gamification ? (
+						<Card className="learning-momentum">
+							<div className="learning-momentum__header">
+								<p className="eyebrow">Gamification</p>
+								<h2>Je momentum</h2>
+								<p>Elke opgeslagen stap telt mee voor badges, streaks en zichtbare voortgang.</p>
+							</div>
+							<div className="learning-momentum__stats">
+								<div>
+									<small>Huidige streak</small>
+									<strong>{gamification.currentStreakDays}</strong>
+									<span>{gamification.currentStreakDays === 1 ? "dag actief" : "dagen actief"}</span>
+								</div>
+								<div>
+									<small>Badges</small>
+									<strong>{gamification.badges.length}</strong>
+									<span>vrijgespeeld</span>
+								</div>
+								<div>
+									<small>Onderdelen</small>
+									<strong>{gamification.completedSections}</strong>
+									<span>opgeslagen</span>
+								</div>
+							</div>
+							<div className="learning-momentum__goal">
+								<p className="eyebrow">Volgende beloning</p>
+								{gamification.nextBadge ? (
+									<>
+										<strong>{gamification.nextBadge.title}</strong>
+										<span>{formatNextBadgeHint(gamification.nextBadge)}</span>
+									</>
+								) : (
+									<>
+										<strong>Alle badges vrijgespeeld</strong>
+										<span>Je hebt alle huidige gamification-doelen al behaald.</span>
+									</>
+								)}
+							</div>
+							<div className="learning-momentum__badges">
+								<div>
+									<p className="eyebrow">Recent verdiend</p>
+									<h3>Laatste badges</h3>
+								</div>
+								{gamification.badges.length > 0 ? (
+									<ul>
+										{gamification.badges.slice(0, 3).map(badge => (
+											<li key={badge.id}>
+												<span>
+													<Icon name="award" size={16} />
+												</span>
+												<div>
+													<strong>{badge.title}</strong>
+													<small>
+														{badge.description} · {formatRelativeDate(badge.awardedAtIso)}
+													</small>
+												</div>
+											</li>
+										))}
+									</ul>
+								) : (
+									<p className="muted-copy">Je eerste badge verschijnt zodra je je eerste onderdeel afrondt.</p>
+								)}
+							</div>
+						</Card>
+					) : null}
+
 					<Card className="recent-activity">
 						<p className="eyebrow">Recente activiteit</p>
 						<h2>Laatste updates</h2>
@@ -253,6 +323,18 @@ function getGreeting(): string {
 	if (hour < 12) return "Goedemorgen";
 	if (hour < 18) return "Goedemiddag";
 	return "Goedenavond";
+}
+
+function formatNextBadgeHint(goal: BadgeGoalView): string {
+	if (goal.metric === "STREAK_DAYS") {
+		return `Nog ${goal.remainingValue} ${goal.remainingValue === 1 ? "dag" : "dagen"} leren voor ${goal.title.toLowerCase()}.`;
+	}
+
+	if (goal.metric === "COURSES") {
+		return `Nog ${goal.remainingValue} ${goal.remainingValue === 1 ? "e-learning" : "e-learnings"} afronden voor ${goal.title.toLowerCase()}.`;
+	}
+
+	return `Nog ${goal.remainingValue} ${goal.remainingValue === 1 ? "onderdeel" : "onderdelen"} opslaan voor ${goal.title.toLowerCase()}.`;
 }
 
 function formatRelativeDate(value: string): string {

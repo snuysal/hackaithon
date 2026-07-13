@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getElearning, readStoredSession, storeSession } from "./api.js";
+import { getElearning, getGamificationSummary, readStoredSession, storeSession } from "./api.js";
 
 void test("should be able to store and restore a valid session while clearing invalid session data", (): void => {
 	const storage = createLocalStorage();
@@ -115,6 +115,53 @@ void test("should be able to translate backend and network failures into user-fr
 	} finally {
 		globalThis.fetch = originalFetch;
 	}
+});
+
+void test("should be able to request the gamification summary with the current actor context", async (): Promise<void> => {
+	const originalFetch = globalThis.fetch;
+	const calls: string[] = [];
+
+	globalThis.fetch = (input: string | URL | Request): Promise<Response> => {
+		const requestUrl =
+			typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+		calls.push(requestUrl);
+		return Promise.resolve(
+			new Response(
+				JSON.stringify({
+					totalScore: 12,
+					currentStreakDays: 1,
+					completedCourses: 0,
+					completedSections: 1,
+					badges: [],
+					nextBadge: null,
+				}),
+				{
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}
+			)
+		);
+	};
+
+	try {
+		await getGamificationSummary({
+			sessionToken: "token-1",
+			user: {
+				id: "participant-1",
+				name: "Participant",
+				email: "participant@example.com",
+				teamName: "Academy",
+				role: "PARTICIPANT",
+				approvalStatus: "APPROVED",
+				birthDateIso: "1990-01-01",
+				canAccessLearning: true,
+			},
+		});
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+
+	assert.deepEqual(calls, ["http://localhost:3000/me/history/summary?actorRole=PARTICIPANT&actorUserId=participant-1"]);
 });
 
 function installLocalStorage(storage: StorageDouble): void {

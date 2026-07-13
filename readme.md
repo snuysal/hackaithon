@@ -23,6 +23,12 @@ Agentic AI writes the code. You steer, validate and ship.
 - PostgreSQL
 - Shared packages
 
+## Gamification
+
+- Learners earn badges while they progress through sections and completed courses
+- A live streak rewards consecutive learning days
+- The dashboard highlights points, unlocked badges and the next milestone
+
 ## Run locally
 
 Prerequisites:

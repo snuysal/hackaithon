@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { buildGamificationSummary, calculateCurrentStreakDays, meetsBadgeRule } from "./gamification.js";
 import { mapUserToAuthView, mapUserToSummary } from "./user-mapper.js";
 import { parseActorRole } from "./role-parser.js";
 import { assertCanManageElearnings, assertSuperuser, canManageElearnings, isSuperuser } from "./superuser-policy.js";
@@ -64,5 +65,92 @@ void test("should be able to map users to the expected frontend view models", ()
 		role: "PARTICIPANT",
 		approvalStatus: "APPROVED",
 		createdAtIso: "2026-07-10T10:00:00.000Z",
+	});
+});
+
+void test("should be able to calculate a live learning streak from recent completion days", (): void => {
+	assert.equal(
+		calculateCurrentStreakDays(
+			[
+				new Date("2026-07-13T09:00:00.000Z"),
+				new Date("2026-07-12T09:00:00.000Z"),
+				new Date("2026-07-11T09:00:00.000Z"),
+			],
+			new Date("2026-07-13T12:00:00.000Z")
+		),
+		3
+	);
+
+	assert.equal(
+		calculateCurrentStreakDays(
+			[
+				new Date("2026-07-10T09:00:00.000Z"),
+				new Date("2026-07-09T09:00:00.000Z"),
+			],
+			new Date("2026-07-13T12:00:00.000Z")
+		),
+		0
+	);
+});
+
+void test("should be able to match badge rules and surface the next badge goal", (): void => {
+	const badgeDefinitions = [
+		{
+			id: "badge-1",
+			code: "STARTER",
+			title: "Starter",
+			description: "Rond je eerste onderdeel af.",
+			ruleJson: JSON.stringify({ trigger: "section_completed", minCount: 1 }),
+		},
+		{
+			id: "badge-2",
+			code: "CONSISTENT",
+			title: "Consistent",
+			description: "Houd een 3-daagse leerstreak vol.",
+			ruleJson: JSON.stringify({ trigger: "streak_days", minDays: 3 }),
+		},
+	];
+
+	assert.equal(
+		meetsBadgeRule(badgeDefinitions[0], {
+			totalScore: 12,
+			completedSections: 1,
+			completedCourses: 0,
+			currentStreakDays: 1,
+		}),
+		true
+	);
+
+	const summary = buildGamificationSummary({
+		badgeDefinitions,
+		badges: [
+			{
+				id: "award-1",
+				awardedAt: new Date("2026-07-13T09:00:00.000Z"),
+				badgeDefinition: {
+					code: "STARTER",
+					title: "Starter",
+					description: "Rond je eerste onderdeel af.",
+				},
+			},
+		],
+		metrics: {
+			totalScore: 12,
+			completedSections: 1,
+			completedCourses: 0,
+			currentStreakDays: 2,
+		},
+	});
+
+	assert.equal(summary.badges.length, 1);
+	assert.deepEqual(summary.nextBadge, {
+		code: "CONSISTENT",
+		title: "Consistent",
+		description: "Houd een 3-daagse leerstreak vol.",
+		metric: "STREAK_DAYS",
+		currentValue: 2,
+		targetValue: 3,
+		remainingValue: 1,
+		progressPercent: 67,
 	});
 });

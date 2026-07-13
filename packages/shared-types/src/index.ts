@@ -211,6 +211,29 @@ export type EnrollmentView = {
     updatedAtIso: string;
 };
 
+export type BadgeAwardView = {
+    id: string;
+    code: string;
+    title: string;
+    description: string;
+    awardedAtIso: string;
+};
+
+export const BADGE_GOAL_METRICS = ["SECTIONS", "COURSES", "STREAK_DAYS"] as const;
+
+export type BadgeGoalMetric = (typeof BADGE_GOAL_METRICS)[number];
+
+export type BadgeGoalView = {
+    code: string;
+    title: string;
+    description: string;
+    metric: BadgeGoalMetric;
+    currentValue: number;
+    targetValue: number;
+    remainingValue: number;
+    progressPercent: number;
+};
+
 export type ProgressUpdateRequest = {
     sectionId: string;
     assignmentId?: string;
@@ -238,6 +261,7 @@ export type ProgressEntryView = {
 export type EnrollmentResumeView = {
     enrollment: EnrollmentView;
     progressEntries: ProgressEntryView[];
+    newlyAwardedBadges: BadgeAwardView[];
 };
 
 export type HistorySummaryItem = {
@@ -256,6 +280,15 @@ export type HistoryDetailView = {
     enrollment: EnrollmentView;
     elearning: ElearningSummary;
     progressEntries: ProgressEntryView[];
+};
+
+export type GamificationSummaryView = {
+    totalScore: number;
+    currentStreakDays: number;
+    completedCourses: number;
+    completedSections: number;
+    badges: BadgeAwardView[];
+    nextBadge: BadgeGoalView | null;
 };
 
 function countWords(value: string | null | undefined): number {

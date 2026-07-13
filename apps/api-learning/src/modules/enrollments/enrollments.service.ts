@@ -1,11 +1,17 @@
 import type {
     AppRole,
+    BadgeAwardView,
     EnrollmentResumeView,
     EnrollmentView,
     ProgressEntryView,
 } from "@hackaithon/shared-types";
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
+import {
+    calculateCurrentStreakDays,
+    mapBadgeAward,
+    meetsBadgeRule,
+} from "../../common/gamification.js";
 import { UserRepository } from "../users/user.repository.js";
 import { PrismaService } from "../database/prisma.service.js";
 import type { ProgressUpdateDto } from "./dto/progress-update.dto.js";
@@ -34,6 +40,24 @@ type DbProgressEntry = {
     score: number;
     timeSpentSeconds: number;
     updatedAt: Date;
+};
+
+type DbBadgeDefinition = {
+    id: string;
+    code: string;
+    title: string;
+    description: string;
+    ruleJson: string;
+};
+
+type DbUserBadge = {
+    id: string;
+    awardedAt: Date;
+    badgeDefinition: {
+        code: string;
+        title: string;
+        description: string;
+    };
 };
 
 @Injectable()
@@ -121,11 +145,17 @@ export class EnrollmentsService {
         await this.saveProgressEntry(enrollmentId, payload);
         const totalScore = await this.calculateTotalScore(enrollmentId);
         const updatedEnrollment = await this.updateEnrollmentAfterProgress(enrollment, payload, totalScore);
+        const { enrollment: enrollmentWithGamification, newlyAwardedBadges } = await this.refreshGamification(
+            actorUser.id,
+            updatedEnrollment,
+            payload.markCompleted ?? false
+        );
         const progressEntries = await this.listProgressEntries(enrollmentId);
 
         return {
-            enrollment: mapEnrollment(updatedEnrollment),
+            enrollment: mapEnrollment(enrollmentWithGamification),
             progressEntries: progressEntries.map(mapProgressEntry),
+            newlyAwardedBadges,
         };
     }
 
@@ -143,6 +173,7 @@ export class EnrollmentsService {
         return {
             enrollment: mapEnrollment(enrollment),
             progressEntries: progressEntries.map(mapProgressEntry),
+            newlyAwardedBadges: [],
         };
     }
 
@@ -249,6 +280,138 @@ export class EnrollmentsService {
                 updatedAt: "asc",
             },
         });
+    }
+
+    private async refreshGamification(
+        userId: string,
+        enrollment: DbEnrollment,
+        markCompleted: boolean
+    ): Promise<{ enrollment: DbEnrollment; newlyAwardedBadges: BadgeAwardView[] }> {
+        const [completedSections, completedEnrollments, badgeDefinitions, userBadges] = await Promise.all([
+            this.prisma.progressEntry.count({
+                where: {
+                    enrollment: {
+                        userId,
+                    },
+                },
+            }),
+            this.prisma.enrollment.findMany({
+                where: {
+                    userId,
+                    status: "COMPLETED",
+                    completedAt: {
+                        not: null,
+                    },
+                },
+                select: {
+                    completedAt: true,
+                },
+            }),
+            this.prisma.badgeDefinition.findMany({
+                orderBy: {
+                    createdAt: "asc",
+                },
+            }),
+            this.prisma.userBadge.findMany({
+                where: {
+                    userId,
+                },
+                include: {
+                    badgeDefinition: {
+                        select: {
+                            code: true,
+                            title: true,
+                            description: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    awardedAt: "desc",
+                },
+            }),
+        ]);
+
+        const currentStreakDays = calculateCurrentStreakDays(completedEnrollments.map(item => item.completedAt));
+        const newlyAwardedBadges = await this.awardEligibleBadges(userId, badgeDefinitions, userBadges, {
+            totalScore: enrollment.totalScore,
+            completedSections,
+            completedCourses: completedEnrollments.length,
+            currentStreakDays,
+        });
+
+        if (!markCompleted || enrollment.streakDays === currentStreakDays) {
+            return {
+                enrollment,
+                newlyAwardedBadges,
+            };
+        }
+
+        const enrollmentWithStreak = await this.prisma.enrollment.update({
+            where: {
+                id: enrollment.id,
+            },
+            data: {
+                streakDays: currentStreakDays,
+            },
+        });
+
+        return {
+            enrollment: enrollmentWithStreak,
+            newlyAwardedBadges,
+        };
+    }
+
+    private async awardEligibleBadges(
+        userId: string,
+        badgeDefinitions: DbBadgeDefinition[],
+        userBadges: DbUserBadge[],
+        metrics: {
+            totalScore: number;
+            completedSections: number;
+            completedCourses: number;
+            currentStreakDays: number;
+        }
+    ): Promise<BadgeAwardView[]> {
+        const awardedDefinitionCodes = new Set(userBadges.map(badge => badge.badgeDefinition.code));
+        const newlyAwardedBadges: BadgeAwardView[] = [];
+
+        for (const badgeDefinition of badgeDefinitions) {
+            if (awardedDefinitionCodes.has(badgeDefinition.code)) {
+                continue;
+            }
+
+            if (!meetsBadgeRule(badgeDefinition, metrics)) {
+                continue;
+            }
+
+            const awardedBadge = await this.prisma.userBadge.upsert({
+                where: {
+                    userId_badgeDefinitionId: {
+                        userId,
+                        badgeDefinitionId: badgeDefinition.id,
+                    },
+                },
+                create: {
+                    userId,
+                    badgeDefinitionId: badgeDefinition.id,
+                },
+                update: {},
+                include: {
+                    badgeDefinition: {
+                        select: {
+                            code: true,
+                            title: true,
+                            description: true,
+                        },
+                    },
+                },
+            });
+
+            awardedDefinitionCodes.add(badgeDefinition.code);
+            newlyAwardedBadges.push(mapBadgeAward(awardedBadge));
+        }
+
+        return newlyAwardedBadges;
     }
 }
 

@@ -1,4 +1,4 @@
-import type { HistoryDetailView, HistorySummaryItem } from "@hackaithon/shared-types";
+import type { GamificationSummaryView, HistoryDetailView, HistorySummaryItem } from "@hackaithon/shared-types";
 import { Controller, Get, Param, Query } from "@nestjs/common";
 
 import { parseActorRole } from "../../common/role-parser.js";
@@ -18,6 +18,17 @@ export class HistoryController {
         const actorUserId = parseRequiredUserId(actorUserIdParam);
 
         return this.historyService.listMyHistory(actorRole, actorUserId);
+    }
+
+    @Get("summary")
+    public getMyGamificationSummary(
+        @Query("actorRole") actorRoleParam: unknown,
+        @Query("actorUserId") actorUserIdParam: unknown
+    ): Promise<GamificationSummaryView> {
+        const actorRole = parseActorRole(actorRoleParam);
+        const actorUserId = parseRequiredUserId(actorUserIdParam);
+
+        return this.historyService.getMyGamificationSummary(actorRole, actorUserId);
     }
 
     @Get(":enrollmentId")

@@ -85,7 +85,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 		return Math.round((currentIndex / course.sections.length) * 100);
 	}, [course, currentIndex, isCompleted, isFinished]);
 
-	async function saveSection(
+async function saveSection(
 		section: ElearningSectionView,
 		position: number,
 		markCompleted: boolean
@@ -100,6 +100,9 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 			markCompleted,
 		});
 		setResume(updatedResume);
+		if (!markCompleted && updatedResume.newlyAwardedBadges.length > 0) {
+			onFeedback({ type: "success", text: getBadgeUnlockMessage(updatedResume.newlyAwardedBadges) });
+		}
 		return updatedResume;
 	}
 
@@ -130,11 +133,14 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 		if (!course || !activeSection) return;
 		setIsNavigating(true);
 		try {
-			await saveSection(activeSection, currentIndex, true);
+			const updatedResume = await saveSection(activeSection, currentIndex, true);
 			setDirtySectionId(null);
 			setSaveStatus("saved");
 			setIsFinished(true);
-			onFeedback({ type: "success", text: "Geweldig! Je hebt de e-learning afgerond." });
+			onFeedback({
+				type: "success",
+				text: getCompletionMessage(updatedResume?.newlyAwardedBadges.length ?? 0),
+			});
 		} catch (caughtError: unknown) {
 			onFeedback({ type: "error", text: (caughtError as Error).message });
 		} finally {
@@ -174,6 +180,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 		);
 
 	if (isFinished) {
+		const unlockedBadges = resume.newlyAwardedBadges;
 		return (
 			<section className="completion-screen">
 				<div aria-hidden="true" className="completion-screen__rings">
@@ -191,6 +198,41 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 						Je hebt alle onderdelen van <strong>{course.title}</strong> doorlopen. Jouw voortgang staat veilig in je
 						historie.
 					</p>
+					<div className="completion-screen__stats">
+						<div>
+							<small>Score</small>
+							<strong>{resume.enrollment.totalScore}</strong>
+							<span>punten verdiend</span>
+						</div>
+						<div>
+							<small>Streak</small>
+							<strong>{resume.enrollment.streakDays}</strong>
+							<span>{resume.enrollment.streakDays === 1 ? "dag op rij" : "dagen op rij"}</span>
+						</div>
+						<div>
+							<small>Nieuwe badges</small>
+							<strong>{unlockedBadges.length}</strong>
+							<span>{unlockedBadges.length === 1 ? "badge vrijgespeeld" : "badges vrijgespeeld"}</span>
+						</div>
+					</div>
+					{unlockedBadges.length > 0 ? (
+						<div className="completion-screen__badges">
+							<p className="eyebrow">Nieuw verdiend</p>
+							<ul>
+								{unlockedBadges.map(badge => (
+									<li key={badge.id}>
+										<span>
+											<Icon name="award" size={18} />
+										</span>
+										<div>
+											<strong>{badge.title}</strong>
+											<small>{badge.description}</small>
+										</div>
+									</li>
+								))}
+							</ul>
+						</div>
+					) : null}
 					<div className="completion-screen__actions">
 						<Button onClick={() => onNavigate("/historie")}>Bekijk mijn historie</Button>
 						<Button onClick={() => onNavigate("/catalogus")} variant="secondary">
@@ -423,4 +465,26 @@ function buildInitialAnswers(sections: ElearningSectionView[], resume: Enrollmen
 
 function clampPosition(position: number, sectionCount: number): number {
 	return Math.min(Math.max(position, 0), Math.max(sectionCount - 1, 0));
+}
+
+function getCompletionMessage(unlockedBadgeCount: number): string {
+	if (unlockedBadgeCount <= 0) {
+		return "Geweldig! Je hebt de e-learning afgerond.";
+	}
+
+	if (unlockedBadgeCount === 1) {
+		return "Geweldig! Je hebt de e-learning afgerond en een nieuwe badge vrijgespeeld.";
+	}
+
+	return `Geweldig! Je hebt de e-learning afgerond en ${unlockedBadgeCount} nieuwe badges vrijgespeeld.`;
+}
+
+function getBadgeUnlockMessage(
+	badges: EnrollmentResumeView["newlyAwardedBadges"]
+): string {
+	if (badges.length === 1) {
+		return `Badge vrijgespeeld: ${badges[0]?.title}.`;
+	}
+
+	return `Nieuwe badges vrijgespeeld: ${badges.map(badge => badge.title).join(", ")}.`;
 }

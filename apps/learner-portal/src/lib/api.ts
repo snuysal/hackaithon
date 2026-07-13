@@ -6,6 +6,7 @@ import type {
 	ElearningView,
 	EnrollmentResumeView,
 	EnrollmentView,
+	GamificationSummaryView,
 	HistoryDetailView,
 	HistorySummaryItem,
 	LoginRequest,
@@ -132,6 +133,10 @@ export async function saveProgress(
 
 export async function listHistory(session: SessionState): Promise<HistorySummaryItem[]> {
 	return callApi<HistorySummaryItem[]>(`/me/history?${buildActorQuery(session)}`);
+}
+
+export async function getGamificationSummary(session: SessionState): Promise<GamificationSummaryView> {
+	return callApi<GamificationSummaryView>(`/me/history/summary?${buildActorQuery(session)}`);
 }
 
 export async function getHistoryDetail(session: SessionState, enrollmentId: string): Promise<HistoryDetailView> {

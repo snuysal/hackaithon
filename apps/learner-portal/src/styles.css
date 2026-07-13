@@ -1509,6 +1509,94 @@ p {
 	padding: 1.5rem;
 }
 
+.learning-momentum {
+	padding: 1.5rem;
+	border-color: rgb(14 80 62 / 14%);
+	background:
+		linear-gradient(145deg, rgb(239 252 246 / 98%), rgb(255 255 255 / 98%)),
+		radial-gradient(circle at top right, rgb(102 224 159 / 18%), transparent 45%);
+}
+
+.learning-momentum__header p:last-child {
+	margin: 0.4rem 0 0;
+	color: var(--color-text-muted);
+	font-size: 0.78rem;
+}
+
+.learning-momentum__header h2,
+.learning-momentum__badges h3 {
+	margin: 0;
+	font-size: 1.2rem;
+}
+
+.learning-momentum__stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+	gap: 0.75rem;
+	margin: 1.25rem 0;
+}
+
+.learning-momentum__stats > div,
+.learning-momentum__goal {
+	display: grid;
+	gap: 0.25rem;
+	padding: 0.95rem 1rem;
+	border: 1px solid rgb(14 80 62 / 10%);
+	border-radius: var(--radius-md);
+	background: rgb(255 255 255 / 88%);
+}
+
+.learning-momentum__stats small,
+.learning-momentum__goal span,
+.learning-momentum__badges small {
+	color: var(--color-text-muted);
+	font-size: 0.7rem;
+}
+
+.learning-momentum__stats strong,
+.learning-momentum__goal strong {
+	font-size: 1.3rem;
+	line-height: 1.1;
+}
+
+.learning-momentum__badges {
+	margin-top: 1.25rem;
+}
+
+.learning-momentum__badges ul {
+	display: grid;
+	gap: 0.8rem;
+	margin: 1rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.learning-momentum__badges li {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.75rem;
+	align-items: start;
+}
+
+.learning-momentum__badges li > span {
+	display: grid;
+	width: 2rem;
+	height: 2rem;
+	place-items: center;
+	border-radius: 50%;
+	background: rgb(255 141 75 / 16%);
+	color: var(--cerios-orange);
+}
+
+.learning-momentum__badges li > div {
+	display: grid;
+	min-width: 0;
+}
+
+.learning-momentum__badges strong {
+	font-size: 0.8rem;
+}
+
 .quick-actions h2,
 .recent-activity h2 {
 	font-size: 1.2rem;
@@ -2244,6 +2332,77 @@ p {
 
 .completion-screen p:not(.eyebrow) {
 	color: rgb(255 255 255 / 75%);
+}
+
+.completion-screen__stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+	gap: 0.85rem;
+	margin-top: 1.75rem;
+	text-align: left;
+}
+
+.completion-screen__stats > div,
+.completion-screen__badges {
+	padding: 1rem 1.1rem;
+	border: 1px solid rgb(255 255 255 / 10%);
+	border-radius: var(--radius-md);
+	background: rgb(255 255 255 / 6%);
+	backdrop-filter: blur(10px);
+}
+
+.completion-screen__stats small,
+.completion-screen__badges small {
+	color: rgb(255 255 255 / 72%);
+	font-size: 0.7rem;
+}
+
+.completion-screen__stats strong {
+	display: block;
+	margin-top: 0.25rem;
+	color: white;
+	font-size: 1.65rem;
+}
+
+.completion-screen__stats span {
+	color: rgb(255 255 255 / 82%);
+	font-size: 0.72rem;
+}
+
+.completion-screen__badges {
+	margin-top: 1rem;
+	text-align: left;
+}
+
+.completion-screen__badges ul {
+	display: grid;
+	gap: 0.75rem;
+	margin: 0.75rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.completion-screen__badges li {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.75rem;
+	align-items: start;
+}
+
+.completion-screen__badges li > span {
+	display: grid;
+	width: 2.25rem;
+	height: 2.25rem;
+	place-items: center;
+	border-radius: 50%;
+	background: rgb(102 224 159 / 14%);
+	color: var(--cerios-emerald);
+}
+
+.completion-screen__badges strong {
+	display: block;
+	color: white;
+	font-size: 0.82rem;
 }
 
 .completion-screen__actions {

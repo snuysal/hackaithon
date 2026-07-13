@@ -1,5 +1,6 @@
 import type {
     AppRole,
+    GamificationSummaryView,
     HistoryDetailView,
     HistorySummaryItem,
     ProgressEntryView,
@@ -7,6 +8,10 @@ import type {
 import { estimateElearningDurationMinutes } from "@hackaithon/shared-types";
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
+import {
+    buildGamificationSummary,
+    calculateCurrentStreakDays,
+} from "../../common/gamification.js";
 import { UserRepository } from "../users/user.repository.js";
 import { PrismaService } from "../database/prisma.service.js";
 
@@ -106,6 +111,77 @@ export class HistoryService {
             completedAtIso: enrollment.completedAt ? enrollment.completedAt.toISOString() : null,
             updatedAtIso: enrollment.updatedAt.toISOString(),
         }));
+    }
+
+    public async getMyGamificationSummary(
+        actorRole: AppRole,
+        actorUserId: string
+    ): Promise<GamificationSummaryView> {
+        const actorUser = await this.userRepository.findById(actorUserId);
+        assertRoleMatchesStoredUser(actorRole, actorUser.role);
+
+        const [scoreAggregation, completedSections, completedEnrollments, badges, badgeDefinitions] = await Promise.all([
+            this.prisma.enrollment.aggregate({
+                where: {
+                    userId: actorUserId,
+                },
+                _sum: {
+                    totalScore: true,
+                },
+            }),
+            this.prisma.progressEntry.count({
+                where: {
+                    enrollment: {
+                        userId: actorUserId,
+                    },
+                },
+            }),
+            this.prisma.enrollment.findMany({
+                where: {
+                    userId: actorUserId,
+                    status: "COMPLETED",
+                    completedAt: {
+                        not: null,
+                    },
+                },
+                select: {
+                    completedAt: true,
+                },
+            }),
+            this.prisma.userBadge.findMany({
+                where: {
+                    userId: actorUserId,
+                },
+                include: {
+                    badgeDefinition: {
+                        select: {
+                            code: true,
+                            title: true,
+                            description: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    awardedAt: "desc",
+                },
+            }),
+            this.prisma.badgeDefinition.findMany({
+                orderBy: {
+                    createdAt: "asc",
+                },
+            }),
+        ]);
+
+        return buildGamificationSummary({
+            metrics: {
+                totalScore: scoreAggregation._sum.totalScore ?? 0,
+                completedSections,
+                completedCourses: completedEnrollments.length,
+                currentStreakDays: calculateCurrentStreakDays(completedEnrollments.map(item => item.completedAt)),
+            },
+            badges,
+            badgeDefinitions,
+        });
     }
 
     public async getHistoryDetail(
