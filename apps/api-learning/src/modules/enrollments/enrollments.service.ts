@@ -211,6 +211,30 @@ export class EnrollmentsService {
         };
     }
 
+    public async restartEnrollment(
+        enrollmentId: string,
+        actorRole: AppRole,
+        actorUserId: string
+    ): Promise<EnrollmentResumeView> {
+        const actorUser = await this.userRepository.findById(actorUserId);
+        assertRoleMatchesStoredUser(actorRole, actorUser.role);
+
+        const enrollment = await this.getAccessibleEnrollment(enrollmentId, actorUser.id, actorUser.role);
+        const restartedEnrollment =
+            enrollment.status === "COMPLETED"
+                ? await this.restartCompletedEnrollment(enrollment)
+                : await this.reopenEditableEnrollment(enrollment);
+        const progressEntries = await this.listProgressEntries(enrollmentId);
+        const assessment = await this.buildCourseAssessment(enrollment.elearningId, progressEntries);
+
+        return {
+            enrollment: mapEnrollment(restartedEnrollment),
+            progressEntries: progressEntries.map(mapProgressEntry),
+            assessment,
+            newlyAwardedBadges: [],
+        };
+    }
+
     public async listPendingOpenAnswerReviews(
         actorRole: AppRole,
         actorUserId: string
@@ -388,6 +412,77 @@ export class EnrollmentsService {
         assertEnrollmentAccess(actorUserId, actorRole, enrollment.userId);
 
         return enrollment;
+    }
+
+    private async restartCompletedEnrollment(enrollment: DbEnrollment): Promise<DbEnrollment> {
+        await this.prisma.progressEntry.deleteMany({
+            where: {
+                enrollmentId: enrollment.id,
+            },
+        });
+
+        return this.prisma.enrollment.update({
+            where: {
+                id: enrollment.id,
+            },
+            data: {
+                status: "IN_PROGRESS",
+                startedAt: new Date(),
+                completedAt: null,
+                lastPosition: 0,
+                totalScore: 0,
+                streakDays: 0,
+            },
+        });
+    }
+
+    private async reopenEditableEnrollment(enrollment: DbEnrollment): Promise<DbEnrollment> {
+        const progressEntries = await this.prisma.progressEntry.findMany({
+            where: {
+                enrollmentId: enrollment.id,
+            },
+            include: {
+                assignment: {
+                    select: {
+                        assignmentType: true,
+                    },
+                },
+            },
+        });
+        const openProgressEntryIds = progressEntries
+            .filter(entry => entry.assignment?.assignmentType === "OPEN_TEXT")
+            .map(entry => entry.id);
+
+        if (openProgressEntryIds.length > 0) {
+            await this.prisma.progressEntry.updateMany({
+                where: {
+                    id: {
+                        in: openProgressEntryIds,
+                    },
+                },
+                data: {
+                    grade: null,
+                    reviewComment: null,
+                    reviewedAt: null,
+                    reviewedById: null,
+                    isCorrect: null,
+                    score: 0,
+                },
+            });
+        }
+
+        const totalScore = await this.calculateTotalScore(enrollment.id);
+        return this.prisma.enrollment.update({
+            where: {
+                id: enrollment.id,
+            },
+            data: {
+                status: "IN_PROGRESS",
+                completedAt: null,
+                startedAt: enrollment.startedAt ?? new Date(),
+                totalScore,
+            },
+        });
     }
 
     // oxlint-disable-next-line eslint/complexity -- Progress saving handles both quiz autosave and open-answer review reset paths.

@@ -133,6 +133,12 @@ export async function saveProgress(
 	);
 }
 
+export async function restartEnrollment(session: SessionState, enrollmentId: string): Promise<EnrollmentResumeView> {
+	return callApi<EnrollmentResumeView>(`/enrollments/${encodeURIComponent(enrollmentId)}/restart?${buildActorQuery(session)}`, {
+		method: "POST",
+	});
+}
+
 export async function listHistory(session: SessionState): Promise<HistorySummaryItem[]> {
 	return callApi<HistorySummaryItem[]>(`/me/history?${buildActorQuery(session)}`);
 }

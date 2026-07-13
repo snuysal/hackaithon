@@ -48,6 +48,18 @@ export class EnrollmentsController {
         return this.enrollmentsService.getResume(enrollmentId, actorRole, actorUserId);
     }
 
+    @Post("enrollments/:id/restart")
+    public restartEnrollment(
+        @Param("id") enrollmentId: string,
+        @Query("actorRole") actorRoleParam: unknown,
+        @Query("actorUserId") actorUserIdParam: unknown
+    ): Promise<EnrollmentResumeView> {
+        const actorRole = parseActorRole(actorRoleParam);
+        const actorUserId = parseRequiredUserId(actorUserIdParam);
+
+        return this.enrollmentsService.restartEnrollment(enrollmentId, actorRole, actorUserId);
+    }
+
     @Get("reviews/open-answers")
     public listPendingOpenAnswerReviews(
         @Query("actorRole") actorRoleParam: unknown,

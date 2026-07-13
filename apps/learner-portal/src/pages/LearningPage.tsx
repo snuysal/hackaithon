@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState, type ReactElement } from "react";
 
 import { Icon } from "../components/Icon.js";
 import { Button, Card, EmptyState, ErrorState, LoadingState, ProgressBar, TextArea } from "../components/ui.js";
-import { getElearning, getEnrollmentResume, listHistory, saveProgress, startEnrollment } from "../lib/api.js";
+import { getElearning, getEnrollmentResume, listHistory, restartEnrollment, saveProgress, startEnrollment } from "../lib/api.js";
 import type { FeedbackMessage, SessionState } from "../types.js";
 
 type LearningPageProps = {
@@ -30,6 +30,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 	const [isLoading, setIsLoading] = useState(true);
 	const [isNavigating, setIsNavigating] = useState(false);
+	const [isRestarting, setIsRestarting] = useState(false);
 	const [isFinished, setIsFinished] = useState(false);
 	const [retrySectionIds, setRetrySectionIds] = useState<string[] | null>(null);
 	const [error, setError] = useState("");
@@ -213,6 +214,34 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 		window.scrollTo({ top: 0, behavior: "smooth" });
 	}
 
+	async function restartCourse(): Promise<void> {
+		if (!course || !resume) return;
+
+		const wasCompleted = resume.enrollment.status === "COMPLETED";
+		setIsRestarting(true);
+		try {
+			const updatedResume = await restartEnrollment(session, resume.enrollment.id);
+			setResume(updatedResume);
+			setAnswers(buildInitialAnswers(course.sections, updatedResume));
+			setCurrentIndex(wasCompleted ? 0 : getFirstOpenQuestionIndex(course.sections));
+			setIsFinished(false);
+			setRetrySectionIds(null);
+			setDirtySectionId(null);
+			setSaveStatus("idle");
+			onFeedback({
+				type: "info",
+				text: wasCompleted
+					? "Je bent opnieuw gestart met deze e-learning."
+					: "Je inzending is weer bewerkbaar. Pas je open antwoorden aan en stuur opnieuw in.",
+			});
+			window.scrollTo({ top: 0, behavior: "smooth" });
+		} catch (caughtError: unknown) {
+			onFeedback({ type: "error", text: (caughtError as Error).message });
+		} finally {
+			setIsRestarting(false);
+		}
+	}
+
 	if (isLoading) return <LoadingState description="Je leeromgeving wordt klaargezet." />;
 	if (error)
 		return (
@@ -250,6 +279,8 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 				assessment={resume.assessment}
 				courseTitle={course.title}
 				onNavigate={onNavigate}
+				onRestart={() => void restartCourse()}
+				isRestarting={isRestarting}
 				userName={session.user.name.split(" ")[0] ?? session.user.name}
 			/>
 		);
@@ -322,6 +353,9 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 						</div>
 					) : null}
 					<div className="completion-screen__actions">
+						<Button icon="edit" isLoading={isRestarting} onClick={() => void restartCourse()}>
+							E-learning opnieuw doen
+						</Button>
 						<Button onClick={() => onNavigate("/historie")}>Bekijk mijn historie</Button>
 						<Button onClick={() => onNavigate("/catalogus")} variant="secondary">
 							Ontdek meer
@@ -464,8 +498,8 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 							{retrySectionIds ? "Volgende foute vraag" : "Volgende onderdeel"}
 						</Button>
 					) : isCompleted ? (
-						<Button onClick={() => onNavigate("/historie")} icon="check">
-							Bekijk historie
+						<Button icon="edit" isLoading={isRestarting} onClick={() => void restartCourse()}>
+							E-learning opnieuw doen
 						</Button>
 					) : (
 						<Button disabled={isNavigating} icon="check" isLoading={isNavigating} onClick={() => void completeCourse()}>
@@ -567,14 +601,18 @@ function AssessmentRetryScreen({
 type AssessmentPendingScreenProps = {
 	assessment: CourseAssessmentView;
 	courseTitle: string;
+	isRestarting: boolean;
 	onNavigate: (path: string) => void;
+	onRestart: () => void;
 	userName: string;
 };
 
 function AssessmentPendingScreen({
 	assessment,
 	courseTitle,
+	isRestarting,
 	onNavigate,
+	onRestart,
 	userName,
 }: AssessmentPendingScreenProps): ReactElement {
 	return (
@@ -612,6 +650,9 @@ function AssessmentPendingScreen({
 					</div>
 				</div>
 				<div className="completion-screen__actions">
+					<Button icon="edit" isLoading={isRestarting} onClick={onRestart}>
+						Inzending aanpassen
+					</Button>
 					<Button onClick={() => onNavigate("/dashboard")}>Naar dashboard</Button>
 					<Button onClick={() => onNavigate("/historie")} variant="secondary">
 						Bekijk historie
@@ -721,6 +762,11 @@ function buildInitialAnswers(sections: ElearningSectionView[], resume: Enrollmen
 
 function clampPosition(position: number, sectionCount: number): number {
 	return Math.min(Math.max(position, 0), Math.max(sectionCount - 1, 0));
+}
+
+function getFirstOpenQuestionIndex(sections: ElearningSectionView[]): number {
+	const openQuestionIndex = sections.findIndex(section => section.assignment?.assignmentType === "OPEN_TEXT");
+	return Math.max(openQuestionIndex, 0);
 }
 
 function getCompletionMessage(unlockedBadgeCount: number): string {

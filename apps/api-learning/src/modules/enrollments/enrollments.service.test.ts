@@ -137,8 +137,77 @@ void test("should be able to store a wrong quiz answer and pass after retrying i
 	assert.deepEqual(passedRetry.assessment.incorrectAnswers, []);
 });
 
+void test("should be able to reopen an awaiting open answer submission for editing", async (): Promise<void> => {
+	const context = createEnrollmentContext({
+		assignmentType: "OPEN_TEXT",
+		existingCompletionDates: [],
+		initialEnrollmentStatus: "AWAITING_REVIEW",
+		initialProgressEntries: [
+			{
+				answerJson: null,
+				answerText: "Mijn ingestuurde reflectie",
+				assignmentId: "assignment-1",
+				enrollmentId: "enrollment-1",
+				grade: 6,
+				id: "progress-1",
+				isCorrect: true,
+				reviewComment: "Prima start.",
+				reviewedAt: new Date("2026-07-13T10:00:00.000Z"),
+				reviewedById: "trainer-1",
+				score: 10,
+				sectionId: "section-1",
+				timeSpentSeconds: 30,
+				updatedAt: new Date("2026-07-13T10:00:00.000Z"),
+			},
+		],
+		quizPoints: 10,
+	});
+	const service = new EnrollmentsService(context.prisma as never, context.userRepository as never);
+
+	const result = await service.restartEnrollment("enrollment-1", "PARTICIPANT", "participant-1");
+
+	assert.equal(result.enrollment.status, "IN_PROGRESS");
+	assert.equal(result.enrollment.completedAtIso, null);
+	assert.equal(result.enrollment.totalScore, 0);
+	assert.equal(result.progressEntries[0]?.answerText, "Mijn ingestuurde reflectie");
+	assert.equal(result.progressEntries[0]?.grade, null);
+	assert.equal(result.progressEntries[0]?.reviewComment, null);
+	assert.equal(result.progressEntries[0]?.isCorrect, null);
+	assert.equal(result.assessment.awaitingReview, true);
+});
+
+void test("should be able to restart a completed e-learning as a fresh attempt", async (): Promise<void> => {
+	const context = createEnrollmentContext({ existingCompletionDates: [], quizPoints: 10 });
+	const service = new EnrollmentsService(context.prisma as never, context.userRepository as never);
+
+	await service.updateProgress(
+		"enrollment-1",
+		{
+			sectionId: "section-1",
+			assignmentId: "assignment-1",
+			answerText: "Correct answer",
+			position: 0,
+			markCompleted: true,
+		},
+		"PARTICIPANT",
+		"participant-1"
+	);
+
+	const result = await service.restartEnrollment("enrollment-1", "PARTICIPANT", "participant-1");
+
+	assert.equal(result.enrollment.status, "IN_PROGRESS");
+	assert.equal(result.enrollment.completedAtIso, null);
+	assert.equal(result.enrollment.totalScore, 0);
+	assert.equal(result.enrollment.lastPosition, 0);
+	assert.deepEqual(result.progressEntries, []);
+	assert.equal(result.assessment.passed, false);
+});
+
 function createEnrollmentContext(input: {
+	assignmentType?: "QUIZ" | "OPEN_TEXT";
 	existingCompletionDates: Date[];
+	initialEnrollmentStatus?: EnrollmentRecord["status"];
+	initialProgressEntries?: ProgressEntryRecord[];
 	quizPoints: number;
 }): {
 	prisma: PrismaDouble;
@@ -146,12 +215,12 @@ function createEnrollmentContext(input: {
 		findById: (userId: string) => Promise<{ id: string; role: "PARTICIPANT"; approvalStatus: "APPROVED" }>;
 	};
 } {
-	const progressEntries: ProgressEntryRecord[] = [];
+	const progressEntries: ProgressEntryRecord[] = input.initialProgressEntries ? [...input.initialProgressEntries] : [];
 	const enrollment: EnrollmentRecord = {
 		id: "enrollment-1",
 		userId: "participant-1",
 		elearningId: "course-1",
-		status: "IN_PROGRESS",
+		status: input.initialEnrollmentStatus ?? "IN_PROGRESS",
 		startedAt: new Date("2026-07-13T08:00:00.000Z"),
 		completedAt: null,
 		lastPosition: 0,
@@ -184,26 +253,26 @@ function createEnrollmentContext(input: {
 		},
 	];
 	const awardedBadges: UserBadgeRecord[] = [];
-	const quizAssignment: AssignmentRecord = {
+	const assignment: AssignmentRecord = {
 		id: "assignment-1",
-		assignmentType: "QUIZ",
-		prompt: "Choose the correct answer",
-		correctAnswerJson: JSON.stringify("Correct answer"),
+		assignmentType: input.assignmentType ?? "QUIZ",
+		prompt: input.assignmentType === "OPEN_TEXT" ? "Describe your reflection" : "Choose the correct answer",
+		correctAnswerJson: input.assignmentType === "OPEN_TEXT" ? null : JSON.stringify("Correct answer"),
 		points: input.quizPoints,
 	};
 
 	const prisma: PrismaDouble = {
 		elearningSection: {
 			findFirst: (): Promise<{ id: string; assignment: AssignmentRecord }> =>
-				Promise.resolve({ id: "section-1", assignment: { ...quizAssignment } }),
+				Promise.resolve({ id: "section-1", assignment: { ...assignment } }),
 		},
 		assignment: {
 			findMany: (): Promise<QuizQuestionRecord[]> =>
 				Promise.resolve([
 					{
-						id: quizAssignment.id,
-						assignmentType: quizAssignment.assignmentType,
-						prompt: quizAssignment.prompt,
+						id: assignment.id,
+						assignmentType: assignment.assignmentType,
+						prompt: assignment.prompt,
 						section: {
 							id: "section-1",
 							title: "Quiz section",
@@ -290,6 +359,28 @@ function createEnrollmentContext(input: {
 				}
 				return Promise.resolve();
 			},
+			updateMany: ({
+				where,
+				data,
+			}: {
+				where: { id: { in: string[] } };
+				data: Partial<ProgressEntryRecord>;
+			}): Promise<void> => {
+				for (const entry of progressEntries) {
+					if (where.id.in.includes(entry.id)) {
+						Object.assign(entry, data, { updatedAt: new Date() });
+					}
+				}
+				return Promise.resolve();
+			},
+			deleteMany: ({ where }: { where: { enrollmentId: string } }): Promise<void> => {
+				for (let index = progressEntries.length - 1; index >= 0; index -= 1) {
+					if (progressEntries[index]?.enrollmentId === where.enrollmentId) {
+						progressEntries.splice(index, 1);
+					}
+				}
+				return Promise.resolve();
+			},
 			aggregate: (): Promise<{ _sum: { score: number | null } }> =>
 				Promise.resolve({
 					_sum: {
@@ -300,7 +391,7 @@ function createEnrollmentContext(input: {
 				Promise.resolve(
 					[...progressEntries]
 						.sort((left, right) => left.updatedAt.getTime() - right.updatedAt.getTime())
-						.map(entry => ({ ...entry }))
+						.map(entry => ({ ...entry, assignment: { assignmentType: assignment.assignmentType } }))
 				),
 			count: (): Promise<number> => Promise.resolve(progressEntries.length),
 		},
@@ -489,6 +580,11 @@ type PrismaDouble = {
 			where: { id: string };
 			data: Partial<ProgressEntryRecord>;
 		}) => Promise<void>;
+		updateMany: (args: {
+			where: { id: { in: string[] } };
+			data: Partial<ProgressEntryRecord>;
+		}) => Promise<void>;
+		deleteMany: (args: { where: { enrollmentId: string } }) => Promise<void>;
 		aggregate: () => Promise<{ _sum: { score: number | null } }>;
 		findMany: () => Promise<ProgressEntryRecord[]>;
 		count: () => Promise<number>;
