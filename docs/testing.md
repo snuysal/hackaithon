@@ -2,6 +2,12 @@
 
 ## Commands
 
+Run all commands from the project root:
+
+```bash
+C:\Users\JornevanZanden\CeriosProjects\hackaithon
+```
+
 Run the full suite:
 
 ```bash
@@ -25,6 +31,25 @@ npm run test:report:portal
 ```
 
 `npm run test:report` writes a local UI to `reports/tests/index.html` and also stores the raw JUnit output in `reports/tests/junit.xml`. Open the HTML file in your browser to inspect the results.
+
+## Reading results
+
+Terminal output shows:
+
+- `✔` for successful tests
+- `✖` for failed tests
+- a summary with totals and duration at the bottom
+
+The HTML report shows:
+
+- a global summary of passed and failed tests
+- grouped results per file
+- detailed error output for failed tests
+
+Generated files:
+
+- `reports/tests/index.html`
+- `reports/tests/junit.xml`
 
 ## Current coverage
 

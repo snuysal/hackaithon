@@ -1,28 +1,29 @@
-# HACKAITHON ⚡
+# HACKAITHON
 
 > "We build things. We break things. We let AI fix things."
 
-**Friday, July 10 · 13:00–20:00 · Cerios HQ Utrecht**
+**Friday, July 10 · 13:00-20:00 · Cerios HQ Utrecht**
+
 ![Hackaithon banner](./hackyton.png)
+
 ---
 
 ## What even is this?
 
-A hackathon where teams build a full app **and** test it the same afternoon. With AI. While eating free food. No excuses.
+A hackathon where teams build a full app and test it the same afternoon. With AI. While eating free food. No excuses.
 
-Agentic AI writes the code. Playwright MCP runs the browser. You watch in awe and pretend you planned it that way.
-
-## The vibe
-
-- Bugs? The agent analyzes, fixes, tests and validates. You drink coffee.
-- Testing? Playwright clicks everything. You watch.
-- Done in minutes what used to take days. Classic AI arc.
+Agentic AI writes the code. You steer, validate and ship.
 
 ## Stack
 
-`agentic AI` · `Playwright MCP` · `prompts & skills` · `vibes`
+- TypeScript monorepo
+- React frontend
+- NestJS API
+- Prisma
+- PostgreSQL
+- Shared packages
 
-## Run Locally
+## Run locally
 
 Prerequisites:
 
@@ -38,7 +39,7 @@ npm run db:up
 npm run dev:postgres
 ```
 
-Fallback mode without Docker (SQLite):
+Fallback mode without Docker:
 
 ```bash
 npm install
@@ -61,7 +62,51 @@ Stop services:
 npm run db:down
 ```
 
-> ⚠️ Warning: an irresponsible number of tokens will be consumed during this event. They knew what they signed up for.
+## Testing
+
+Run the full test suite:
+
+```bash
+npm run test
+```
+
+Run focused suites:
+
+```bash
+npm run test:api
+npm run test:portal
+npm run test:coverage
+```
+
+Generate a local HTML report:
+
+```bash
+npm run test:report
+```
+
+Generate focused HTML reports:
+
+```bash
+npm run test:report:api
+npm run test:report:portal
+```
+
+Where to find the report:
+
+- HTML UI: `reports/tests/index.html`
+- Raw JUnit XML: `reports/tests/junit.xml`
+
+Open `reports/tests/index.html` in your browser to inspect passed and failed tests per file.
+
+More detail is available in [docs/testing.md](./docs/testing.md).
+
+## Useful commands
+
+```bash
+npm run compile
+npm run lint
+npm run format
+```
 
 ---
 
