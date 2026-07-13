@@ -29,6 +29,13 @@ Agentic AI writes the code. You steer, validate and ship.
 - A live streak rewards consecutive learning days
 - The dashboard highlights points, unlocked badges and the next milestone
 
+## Quiz assessment
+
+- Multiple-choice answers are checked and scored by the API; clients cannot submit their own score or correct status.
+- A learner passes an e-learning with at least 70% correct multiple-choice answers.
+- Wrong and unanswered quiz questions are shown after an unsuccessful attempt and can be retried separately.
+- Open questions are saved but are not included in the assessment yet.
+
 ## Run locally
 
 Prerequisites:

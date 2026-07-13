@@ -2405,6 +2405,90 @@ p {
 	font-size: 0.82rem;
 }
 
+.completion-screen--retry {
+	background:
+		radial-gradient(circle at 15% 10%, rgb(255 141 75 / 15%), transparent 30%),
+		linear-gradient(145deg, #342c32, var(--cerios-space-cadet));
+}
+
+.completion-screen--retry .completion-screen__content {
+	width: min(100%, 48rem);
+	max-width: 48rem;
+}
+
+.completion-screen--retry .completion-screen__icon {
+	background: var(--cerios-pumpkin);
+	box-shadow: 0 0 0 1.5rem rgb(255 141 75 / 9%);
+}
+
+.completion-screen--retry .eyebrow {
+	color: var(--cerios-pumpkin);
+}
+
+.completion-screen__answers {
+	margin-top: 1rem;
+	border: 1px solid rgb(255 255 255 / 12%);
+	border-radius: var(--radius-md);
+	background: rgb(255 255 255 / 7%);
+	padding: 1.15rem;
+	text-align: left;
+	backdrop-filter: blur(10px);
+}
+
+.completion-screen__answers h2 {
+	margin: 0.1rem 0 0;
+	color: white;
+	font-size: 1rem;
+}
+
+.completion-screen__answers ul {
+	display: grid;
+	gap: 0.65rem;
+	margin: 1rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.completion-screen__answers li {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.75rem;
+	border-radius: var(--radius-sm);
+	background: rgb(10 16 31 / 30%);
+	padding: 0.85rem;
+}
+
+.completion-screen__answers li > span {
+	display: grid;
+	width: 2rem;
+	height: 2rem;
+	place-items: center;
+	border-radius: 50%;
+	background: rgb(255 141 75 / 14%);
+	color: var(--cerios-pumpkin);
+}
+
+.completion-screen__answers li > div {
+	display: grid;
+	gap: 0.15rem;
+}
+
+.completion-screen__answers small {
+	color: rgb(255 255 255 / 60%);
+	font-size: 0.67rem;
+}
+
+.completion-screen__answers strong {
+	color: white;
+	font-size: 0.78rem;
+}
+
+.completion-screen__answers li p:not(.eyebrow) {
+	margin: 0.2rem 0 0;
+	color: rgb(255 255 255 / 72%);
+	font-size: 0.72rem;
+}
+
 .completion-screen__actions {
 	display: flex;
 	flex-wrap: wrap;

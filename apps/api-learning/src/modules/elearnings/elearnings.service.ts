@@ -3,11 +3,12 @@ import {
 	estimateSectionDurationMinutes,
 	type AppRole,
 	type ElearningAudience,
+	type ElearningSectionInput,
 	type ElearningSectionView,
 	type ElearningSummary,
 	type ElearningView,
 } from "@hackaithon/shared-types";
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { assertCanManageElearnings } from "../../common/superuser-policy.js";
 import { PrismaService } from "../database/prisma.service.js";
@@ -110,6 +111,7 @@ export class ElearningsService {
 	): Promise<ElearningView> {
 		assertCanManageElearnings(actorRole);
 		await this.userRepository.findById(actorUserId);
+		assertValidQuizAssignments(payload.sections);
 
 		const elearning = await this.prisma.elearning.create({
 			data: {
@@ -152,6 +154,9 @@ export class ElearningsService {
 	): Promise<ElearningView> {
 		assertCanManageElearnings(actorRole);
 		await this.userRepository.findById(actorUserId);
+		if (payload.sections) {
+			assertValidQuizAssignments(payload.sections);
+		}
 
 		const existing = await this.prisma.elearning.findUnique({
 			where: { id: elearningId },
@@ -301,12 +306,14 @@ export class ElearningsService {
 			throw new ForbiddenException("This e-learning is not available for your role.");
 		}
 
-		return mapDbElearningToView(elearning);
+		return mapDbElearningToView(elearning, canManageElearning);
 	}
 }
 
-function mapDbElearningToView(dbElearning: DbElearning): ElearningView {
-	const sections = dbElearning.sections.map(section => mapDbSectionToView(section, dbElearning.level));
+function mapDbElearningToView(dbElearning: DbElearning, includeCorrectAnswers = true): ElearningView {
+	const sections = dbElearning.sections.map(section =>
+		mapDbSectionToView(section, dbElearning.level, includeCorrectAnswers)
+	);
 
 	return {
 		id: dbElearning.id,
@@ -328,7 +335,11 @@ function mapDbElearningToView(dbElearning: DbElearning): ElearningView {
 	};
 }
 
-function mapDbSectionToView(section: DbSection, level: DbElearning["level"]): ElearningSectionView {
+function mapDbSectionToView(
+	section: DbSection,
+	level: DbElearning["level"],
+	includeCorrectAnswer: boolean
+): ElearningSectionView {
 	return {
 		id: section.id,
 		title: section.title,
@@ -341,7 +352,7 @@ function mapDbSectionToView(section: DbSection, level: DbElearning["level"]): El
 					assignmentType: section.assignment.assignmentType,
 					prompt: section.assignment.prompt,
 					optionsJson: section.assignment.optionsJson,
-					correctAnswerJson: section.assignment.correctAnswerJson,
+					correctAnswerJson: includeCorrectAnswer ? section.assignment.correctAnswerJson : null,
 					points: section.assignment.points,
 					configJson: section.assignment.configJson,
 				}
@@ -378,5 +389,25 @@ function isAudienceAccessible(audience: ElearningAudience, role: AppRole): boole
 function assertRoleMatchesStoredUser(requestedRole: AppRole, storedRole: AppRole): void {
 	if (requestedRole !== storedRole) {
 		throw new ForbiddenException("actorRole does not match the stored role for actorUserId.");
+	}
+}
+
+function assertValidQuizAssignments(sections: ElearningSectionInput[]): void {
+	for (const section of sections) {
+		if (section.assignment?.assignmentType !== "QUIZ") continue;
+
+		try {
+			const options = JSON.parse(section.assignment.optionsJson ?? "") as unknown;
+			const correctAnswer = JSON.parse(section.assignment.correctAnswerJson ?? "") as unknown;
+			const hasValidOptions =
+				Array.isArray(options) && options.length >= 2 && options.every(option => typeof option === "string");
+			if (!hasValidOptions || typeof correctAnswer !== "string" || !options.includes(correctAnswer)) {
+				throw new Error("Invalid quiz configuration");
+			}
+		} catch {
+			throw new BadRequestException(
+				`Quiz assignment in section "${section.title}" must have at least two options and a matching correct answer.`
+			);
+		}
 	}
 }

@@ -93,6 +93,52 @@ void test("should be able to block participant access to draft e-learnings by id
 	assert.equal(adminView.sections[0]?.estimatedDurationMinutes, 3);
 });
 
+void test("should be able to hide correct quiz answers from participants", async (): Promise<void> => {
+	const prisma = {
+		elearning: {
+			findUnique: (): Promise<FullElearningRecord> =>
+				Promise.resolve({
+					id: "course-1",
+					title: "Security basics",
+					description: "Beschrijving",
+					level: "JUNIOR",
+					audience: "PARTICIPANT",
+					status: "PUBLISHED",
+					publishedAt: new Date("2026-07-10T10:00:00.000Z"),
+					createdAt: new Date("2026-07-10T10:00:00.000Z"),
+					updatedAt: new Date("2026-07-10T10:00:00.000Z"),
+					createdById: "trainer-1",
+					sections: [
+						{
+							id: "section-1",
+							title: "Quiz",
+							content: "Kies het juiste antwoord.",
+							orderIndex: 0,
+							assignment: {
+								id: "assignment-1",
+								assignmentType: "QUIZ",
+								prompt: "Welke optie klopt?",
+								optionsJson: JSON.stringify(["A", "B"]),
+								correctAnswerJson: JSON.stringify("B"),
+								points: 10,
+								configJson: null,
+							},
+						},
+					],
+				}),
+		},
+	};
+	const userRepository = {
+		findById: (userId: string): Promise<{ id: string; role: "PARTICIPANT" }> =>
+			Promise.resolve({ id: userId, role: "PARTICIPANT" }),
+	};
+	const service = new ElearningsService(prisma as never, userRepository as never);
+
+	const participantView = await service.getElearningById("course-1", "PARTICIPANT", "participant-1");
+
+	assert.equal(participantView.sections[0]?.assignment?.correctAnswerJson, null);
+});
+
 void test("should be able to return only published e-learnings for the participant audience", async (): Promise<void> => {
 	let capturedWhere: unknown;
 	const prisma = {
@@ -160,6 +206,14 @@ type FullElearningRecord = {
 		title: string;
 		content: string;
 		orderIndex: number;
-		assignment: null;
+		assignment: {
+			id: string;
+			assignmentType: "QUIZ" | "OPEN_TEXT";
+			prompt: string;
+			optionsJson: string | null;
+			correctAnswerJson: string | null;
+			points: number;
+			configJson: string | null;
+		} | null;
 	}>;
 };

@@ -54,8 +54,8 @@ Generated files:
 ## Current coverage
 
 - Shared business logic in `packages/shared-types`
-- API unit tests for parsers, policies, mappers, gamification helpers and services
-- HTTP-level Nest controller tests with validation, query parsing and history summary routes
+- API unit tests for parsers, policies, mappers, gamification, exact quiz assessment thresholds and services
+- HTTP-level Nest controller tests with validation, query parsing, history routes and rejection of client-provided quiz scores
 - Frontend tests for router behavior, API/session helpers and core course-card rendering
 - Local HTML report generation for browsing test results outside the terminal
 

@@ -489,7 +489,7 @@ function CourseEditor({ course, onCancel, onFeedback, onSaved, session }: Course
 												/>
 											</FormField>
 										</div>
-										<FormField htmlFor={`section-correct-${section.key}`} label="Juiste antwoord">
+										<FormField htmlFor={`section-correct-${section.key}`} label="Juiste antwoord" required>
 											<Select
 												id={`section-correct-${section.key}`}
 												onChange={event => updateSection(index, { correctAnswer: event.target.value })}
@@ -650,10 +650,20 @@ function validateStep(draft: CourseDraft, step: number): string {
 				return `Vul de titel en lesinhoud van onderdeel ${index + 1} in.`;
 			if (section.assignmentType !== "NONE" && !section.prompt.trim())
 				return `Vul de opdracht van onderdeel ${index + 1} in.`;
-			if (section.assignmentType === "QUIZ" && getOptionLines(section.optionsText).length < 2)
-				return `Voeg minimaal twee antwoordopties toe bij onderdeel ${index + 1}.`;
+			const quizValidationError = validateQuizSection(section, index);
+			if (quizValidationError) return quizValidationError;
 		}
 	}
+	return "";
+}
+
+function validateQuizSection(section: DraftSection, index: number): string {
+	if (section.assignmentType !== "QUIZ") return "";
+	const options = getOptionLines(section.optionsText);
+	if (options.length < 2) return `Voeg minimaal twee antwoordopties toe bij onderdeel ${index + 1}.`;
+	if (!section.correctAnswer) return `Kies het juiste antwoord bij onderdeel ${index + 1}.`;
+	if (!options.includes(section.correctAnswer))
+		return `Het juiste antwoord van onderdeel ${index + 1} moet tussen de antwoordopties staan.`;
 	return "";
 }
 

@@ -23,14 +23,15 @@ void test("should be able to prevent a participant from starting a staff e-learn
 });
 
 void test("should be able to award the starter badge after the first saved learning step", async (): Promise<void> => {
-	const context = createEnrollmentContext({ existingCompletionDates: [] });
+	const context = createEnrollmentContext({ existingCompletionDates: [], quizPoints: 8 });
 	const service = new EnrollmentsService(context.prisma as never, context.userRepository as never);
 
 	const result = await service.updateProgress(
 		"enrollment-1",
 		{
 			sectionId: "section-1",
-			score: 8,
+			assignmentId: "assignment-1",
+			answerText: "Correct answer",
 			position: 0,
 		},
 		"PARTICIPANT",
@@ -48,6 +49,7 @@ void test("should be able to award the starter badge after the first saved learn
 void test("should be able to unlock streak and completion badges when a course is finished on the third day", async (): Promise<void> => {
 	const context = createEnrollmentContext({
 		existingCompletionDates: [daysAgo(1), daysAgo(2)],
+		quizPoints: 12,
 	});
 	const service = new EnrollmentsService(context.prisma as never, context.userRepository as never);
 
@@ -55,7 +57,8 @@ void test("should be able to unlock streak and completion badges when a course i
 		"enrollment-1",
 		{
 			sectionId: "section-1",
-			score: 12,
+			assignmentId: "assignment-1",
+			answerText: "Correct answer",
 			position: 1,
 			markCompleted: true,
 		},
@@ -71,8 +74,67 @@ void test("should be able to unlock streak and completion badges when a course i
 	);
 });
 
+void test("should be able to store a wrong quiz answer and pass after retrying it correctly", async (): Promise<void> => {
+	const context = createEnrollmentContext({ existingCompletionDates: [], quizPoints: 10 });
+	const service = new EnrollmentsService(context.prisma as never, context.userRepository as never);
+
+	const failedAttempt = await service.updateProgress(
+		"enrollment-1",
+		{
+			sectionId: "section-1",
+			assignmentId: "assignment-1",
+			answerText: "Wrong answer",
+			position: 0,
+			markCompleted: true,
+		},
+		"PARTICIPANT",
+		"participant-1"
+	);
+
+	assert.equal(failedAttempt.enrollment.status, "IN_PROGRESS");
+	assert.equal(failedAttempt.enrollment.totalScore, 0);
+	assert.equal(failedAttempt.progressEntries[0]?.isCorrect, false);
+	assert.deepEqual(failedAttempt.assessment, {
+		totalQuestions: 1,
+		correctAnswers: 0,
+		incorrectAnswers: [
+			{
+				sectionId: "section-1",
+				sectionTitle: "Quiz section",
+				assignmentId: "assignment-1",
+				prompt: "Choose the correct answer",
+				selectedAnswer: "Wrong answer",
+			},
+		],
+		scorePercentage: 0,
+		requiredPercentage: 70,
+		passed: false,
+	});
+
+	const passedRetry = await service.updateProgress(
+		"enrollment-1",
+		{
+			sectionId: "section-1",
+			assignmentId: "assignment-1",
+			answerText: "Correct answer",
+			position: 0,
+			markCompleted: true,
+		},
+		"PARTICIPANT",
+		"participant-1"
+	);
+
+	assert.equal(passedRetry.enrollment.status, "COMPLETED");
+	assert.equal(passedRetry.enrollment.totalScore, 10);
+	assert.equal(passedRetry.progressEntries[0]?.isCorrect, true);
+	assert.equal(passedRetry.assessment.scorePercentage, 100);
+	assert.equal(passedRetry.assessment.passed, true);
+	assert.deepEqual(passedRetry.assessment.incorrectAnswers, []);
+});
+
 function createEnrollmentContext(input: {
 	existingCompletionDates: Date[];
+	quizPoints: number;
 }): {
 	prisma: PrismaDouble;
 	userRepository: {
@@ -117,8 +179,33 @@ function createEnrollmentContext(input: {
 		},
 	];
 	const awardedBadges: UserBadgeRecord[] = [];
+	const quizAssignment: AssignmentRecord = {
+		id: "assignment-1",
+		assignmentType: "QUIZ",
+		prompt: "Choose the correct answer",
+		correctAnswerJson: JSON.stringify("Correct answer"),
+		points: input.quizPoints,
+	};
 
 	const prisma: PrismaDouble = {
+		elearningSection: {
+			findFirst: (): Promise<{ id: string; assignment: AssignmentRecord }> =>
+				Promise.resolve({ id: "section-1", assignment: { ...quizAssignment } }),
+		},
+		assignment: {
+			findMany: (): Promise<QuizQuestionRecord[]> =>
+				Promise.resolve([
+					{
+						id: quizAssignment.id,
+						prompt: quizAssignment.prompt,
+						section: {
+							id: "section-1",
+							title: "Quiz section",
+							orderIndex: 0,
+						},
+					},
+				]),
+		},
 		enrollment: {
 			findUnique: ({ where: { id } }: { where: { id: string } }): Promise<EnrollmentRecord | null> =>
 				Promise.resolve(id === enrollment.id ? { ...enrollment } : null),
@@ -326,7 +413,31 @@ type UserBadgeRecord = {
 	};
 };
 
+type AssignmentRecord = {
+	id: string;
+	assignmentType: "QUIZ" | "OPEN_TEXT";
+	prompt: string;
+	correctAnswerJson: string | null;
+	points: number;
+};
+
+type QuizQuestionRecord = {
+	id: string;
+	prompt: string;
+	section: {
+		id: string;
+		title: string;
+		orderIndex: number;
+	};
+};
+
 type PrismaDouble = {
+	elearningSection: {
+		findFirst: () => Promise<{ id: string; assignment: AssignmentRecord }>;
+	};
+	assignment: {
+		findMany: () => Promise<QuizQuestionRecord[]>;
+	};
 	enrollment: {
 		findUnique: (args: { where: { id: string } }) => Promise<EnrollmentRecord | null>;
 		update: (args: {

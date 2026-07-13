@@ -18,15 +18,6 @@ export class ProgressUpdateDto implements ProgressUpdateRequest {
     answerJson?: string;
 
     @IsOptional()
-    @IsBoolean()
-    isCorrect?: boolean;
-
-    @IsOptional()
-    @IsInt()
-    @Min(0)
-    score?: number;
-
-    @IsOptional()
     @IsInt()
     @Min(0)
     timeSpentSeconds?: number;

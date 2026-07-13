@@ -1,4 +1,9 @@
-import type { ElearningSectionView, ElearningView, EnrollmentResumeView } from "@hackaithon/shared-types";
+import type {
+	ElearningSectionView,
+	ElearningView,
+	EnrollmentResumeView,
+	QuizAssessmentView,
+} from "@hackaithon/shared-types";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 
 import { Icon } from "../components/Icon.js";
@@ -26,6 +31,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 	const [isLoading, setIsLoading] = useState(true);
 	const [isNavigating, setIsNavigating] = useState(false);
 	const [isFinished, setIsFinished] = useState(false);
+	const [retrySectionIds, setRetrySectionIds] = useState<string[] | null>(null);
 	const [error, setError] = useState("");
 
 	async function loadLearningEnvironment(): Promise<void> {
@@ -42,6 +48,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 			setCurrentIndex(clampPosition(resumeData.enrollment.lastPosition, courseData.sections.length));
 			setAnswers(buildInitialAnswers(courseData.sections, resumeData));
 			setIsFinished(false);
+			setRetrySectionIds(null);
 		} catch (caughtError: unknown) {
 			setError((caughtError as Error).message);
 		} finally {
@@ -55,6 +62,27 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 
 	const activeSection = course?.sections[currentIndex];
 	const isCompleted = resume?.enrollment.status === "COMPLETED";
+	const retryIndexes = useMemo(() => {
+		if (!course || !retrySectionIds) return null;
+		return retrySectionIds
+			.map(sectionId => course.sections.findIndex(section => section.id === sectionId))
+			.filter(index => index >= 0);
+	}, [course, retrySectionIds]);
+	const retryPosition = retryIndexes?.indexOf(currentIndex) ?? -1;
+	const previousIndex = retryIndexes
+		? retryPosition > 0
+			? retryIndexes[retryPosition - 1]
+			: undefined
+		: currentIndex > 0
+			? currentIndex - 1
+			: undefined;
+	const nextIndex = retryIndexes
+		? retryPosition >= 0 && retryPosition < retryIndexes.length - 1
+			? retryIndexes[retryPosition + 1]
+			: undefined
+		: course && currentIndex < course.sections.length - 1
+			? currentIndex + 1
+			: undefined;
 
 	useEffect(() => {
 		if (!dirtySectionId || !resume || !course || isCompleted) {
@@ -82,10 +110,13 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 	const progressValue = useMemo(() => {
 		if (!course || course.sections.length === 0) return 0;
 		if (isCompleted || isFinished) return 100;
+		if (retryIndexes) {
+			return Math.round((Math.max(retryPosition, 0) / Math.max(retryIndexes.length, 1)) * 100);
+		}
 		return Math.round((currentIndex / course.sections.length) * 100);
-	}, [course, currentIndex, isCompleted, isFinished]);
+	}, [course, currentIndex, isCompleted, isFinished, retryIndexes, retryPosition]);
 
-async function saveSection(
+	async function saveSection(
 		section: ElearningSectionView,
 		position: number,
 		markCompleted: boolean
@@ -95,7 +126,7 @@ async function saveSection(
 		const updatedResume = await saveProgress(session, resume.enrollment.id, {
 			sectionId: section.id,
 			assignmentId: section.assignment?.id,
-			answerText: answers[section.id]?.trim() || undefined,
+			answerText: answers[section.id] ?? "",
 			position,
 			markCompleted,
 		});
@@ -134,18 +165,44 @@ async function saveSection(
 		setIsNavigating(true);
 		try {
 			const updatedResume = await saveSection(activeSection, currentIndex, true);
+			if (!updatedResume) return;
 			setDirtySectionId(null);
 			setSaveStatus("saved");
 			setIsFinished(true);
-			onFeedback({
-				type: "success",
-				text: getCompletionMessage(updatedResume?.newlyAwardedBadges.length ?? 0),
-			});
+			if (updatedResume.assessment.passed) {
+				setRetrySectionIds(null);
+				onFeedback({
+					type: "success",
+					text: getCompletionMessage(updatedResume.newlyAwardedBadges.length),
+				});
+			} else {
+				onFeedback({
+					type: "info",
+					text: `Je score is ${updatedResume.assessment.scorePercentage}%. Bekijk je antwoorden en probeer de foute vragen opnieuw.`,
+				});
+			}
 		} catch (caughtError: unknown) {
 			onFeedback({ type: "error", text: (caughtError as Error).message });
 		} finally {
 			setIsNavigating(false);
 		}
+	}
+
+	function startRetry(): void {
+		if (!course || !resume || resume.assessment.incorrectAnswers.length === 0) return;
+
+		const incorrectSectionIds = resume.assessment.incorrectAnswers.map(answer => answer.sectionId);
+		const firstRetryIndex = course.sections.findIndex(section => section.id === incorrectSectionIds[0]);
+		setAnswers(current => ({
+			...current,
+			...Object.fromEntries(incorrectSectionIds.map(sectionId => [sectionId, ""])),
+		}));
+		setRetrySectionIds(incorrectSectionIds);
+		setCurrentIndex(Math.max(firstRetryIndex, 0));
+		setIsFinished(false);
+		setDirtySectionId(null);
+		setSaveStatus("idle");
+		window.scrollTo({ top: 0, behavior: "smooth" });
 	}
 
 	if (isLoading) return <LoadingState description="Je leeromgeving wordt klaargezet." />;
@@ -180,6 +237,18 @@ async function saveSection(
 		);
 
 	if (isFinished) {
+		if (!resume.assessment.passed) {
+			return (
+				<AssessmentRetryScreen
+					assessment={resume.assessment}
+					courseTitle={course.title}
+					onNavigate={onNavigate}
+					onRetry={startRetry}
+					userName={session.user.name.split(" ")[0] ?? session.user.name}
+				/>
+			);
+		}
+
 		const unlockedBadges = resume.newlyAwardedBadges;
 		return (
 			<section className="completion-screen">
@@ -192,22 +261,22 @@ async function saveSection(
 					<div className="completion-screen__icon">
 						<Icon name="award" size={40} />
 					</div>
-					<p className="eyebrow">E-learning afgerond</p>
+					<p className="eyebrow">E-learning geslaagd</p>
 					<h1>Mooi werk, {session.user.name.split(" ")[0] ?? session.user.name}!</h1>
 					<p>
-						Je hebt alle onderdelen van <strong>{course.title}</strong> doorlopen. Jouw voortgang staat veilig in je
-						historie.
+						Je hebt <strong>{course.title}</strong> afgerond met een score van {resume.assessment.scorePercentage}%.
+						 Jouw resultaat staat veilig in je historie.
 					</p>
 					<div className="completion-screen__stats">
 						<div>
-							<small>Score</small>
-							<strong>{resume.enrollment.totalScore}</strong>
-							<span>punten verdiend</span>
+							<small>Toetsresultaat</small>
+							<strong>{resume.assessment.scorePercentage}%</strong>
+							<span>minimaal {resume.assessment.requiredPercentage}% nodig</span>
 						</div>
 						<div>
-							<small>Streak</small>
-							<strong>{resume.enrollment.streakDays}</strong>
-							<span>{resume.enrollment.streakDays === 1 ? "dag op rij" : "dagen op rij"}</span>
+							<small>Goed beantwoord</small>
+							<strong>{resume.assessment.correctAnswers}</strong>
+							<span>van {resume.assessment.totalQuestions} quizvragen</span>
 						</div>
 						<div>
 							<small>Nieuwe badges</small>
@@ -244,6 +313,12 @@ async function saveSection(
 		);
 	}
 
+	const navigationSections = retrySectionIds
+		? course.sections.filter(section => retrySectionIds.includes(section.id))
+		: course.sections;
+	const displayedPosition = retryIndexes ? Math.max(retryPosition + 1, 1) : currentIndex + 1;
+	const displayedTotal = retryIndexes?.length ?? course.sections.length;
+
 	return (
 		<div className="learning-layout">
 			<aside className="learning-sidebar">
@@ -254,13 +329,15 @@ async function saveSection(
 				>
 					<Icon name="arrow-left" size={18} /> E-learning sluiten
 				</button>
-				<p className="eyebrow">Jouw leerpad</p>
+				<p className="eyebrow">{retrySectionIds ? "Jouw herkansing" : "Jouw leerpad"}</p>
 				<h2>{course.title}</h2>
 				<ProgressBar value={progressValue} />
 				<nav aria-label="Onderdelen" className="lesson-navigation">
 					<ol>
-						{course.sections.map((section, index) => {
-							const hasProgress = resume.progressEntries.some(entry => entry.sectionId === section.id);
+						{navigationSections.map(section => {
+							const index = course.sections.findIndex(item => item.id === section.id);
+							const progressEntry = resume.progressEntries.find(entry => entry.sectionId === section.id);
+							const hasProgress = Boolean(progressEntry);
 							const isActive = index === currentIndex;
 							return (
 								<li key={section.id}>
@@ -273,7 +350,13 @@ async function saveSection(
 										type="button"
 									>
 										<span>
-											{isCompleted || hasProgress || index < currentIndex ? <Icon name="check" size={15} /> : index + 1}
+											{progressEntry?.isCorrect === false ? (
+												<Icon name="close" size={15} />
+											) : isCompleted || hasProgress || index < currentIndex ? (
+												<Icon name="check" size={15} />
+											) : (
+												index + 1
+											)}
 										</span>
 										<span>
 											<small>Onderdeel {index + 1}</small>
@@ -291,7 +374,7 @@ async function saveSection(
 				<header className="lesson-view__header">
 					<div>
 						<p className="eyebrow">
-							Onderdeel {currentIndex + 1} van {course.sections.length}
+							{retrySectionIds ? "Herkansing" : "Onderdeel"} {displayedPosition} van {displayedTotal}
 						</p>
 						<h1 id="lesson-title">{activeSection.title}</h1>
 					</div>
@@ -331,7 +414,7 @@ async function saveSection(
 									<small>
 										{isCompleted
 											? "Deze e-learning is afgerond; je antwoord is alleen-lezen."
-											: "Je antwoord wordt automatisch opgeslagen."}
+											: "Je antwoord wordt automatisch opgeslagen. Open vragen tellen voorlopig niet mee voor je resultaat."}
 									</small>
 								</div>
 							)}
@@ -341,25 +424,25 @@ async function saveSection(
 
 				<footer className="lesson-footer">
 					<Button
-						disabled={currentIndex === 0 || isNavigating}
+						disabled={previousIndex === undefined || isNavigating}
 						icon="arrow-left"
-						onClick={() => void goToSection(currentIndex - 1)}
+						onClick={() => previousIndex !== undefined && void goToSection(previousIndex)}
 						variant="secondary"
 					>
 						Vorige
 					</Button>
 					<span>
-						{currentIndex + 1} / {course.sections.length}
+						{displayedPosition} / {displayedTotal}
 					</span>
-					{currentIndex < course.sections.length - 1 ? (
+					{nextIndex !== undefined ? (
 						<Button
 							disabled={isNavigating}
 							icon="arrow-right"
 							iconPosition="end"
 							isLoading={isNavigating}
-							onClick={() => void goToSection(currentIndex + 1)}
+							onClick={() => void goToSection(nextIndex)}
 						>
-							Volgende onderdeel
+							{retrySectionIds ? "Volgende foute vraag" : "Volgende onderdeel"}
 						</Button>
 					) : isCompleted ? (
 						<Button onClick={() => onNavigate("/historie")} icon="check">
@@ -367,12 +450,94 @@ async function saveSection(
 						</Button>
 					) : (
 						<Button disabled={isNavigating} icon="check" isLoading={isNavigating} onClick={() => void completeCourse()}>
-							E-learning afronden
+							{retrySectionIds ? "Herkansing beoordelen" : "E-learning beoordelen"}
 						</Button>
 					)}
 				</footer>
 			</section>
 		</div>
+	);
+}
+
+type AssessmentRetryScreenProps = {
+	assessment: QuizAssessmentView;
+	courseTitle: string;
+	onNavigate: (path: string) => void;
+	onRetry: () => void;
+	userName: string;
+};
+
+function AssessmentRetryScreen({
+	assessment,
+	courseTitle,
+	onNavigate,
+	onRetry,
+	userName,
+}: AssessmentRetryScreenProps): ReactElement {
+	return (
+		<section className="completion-screen completion-screen--retry">
+			<div aria-hidden="true" className="completion-screen__rings">
+				<span />
+				<span />
+				<span />
+			</div>
+			<div className="completion-screen__content">
+				<div className="completion-screen__icon">
+					<Icon name="edit" size={36} />
+				</div>
+				<p className="eyebrow">Poging beoordeeld</p>
+				<h1>Nog niet geslaagd, {userName}</h1>
+				<p>
+					Voor <strong>{courseTitle}</strong> heb je minimaal {assessment.requiredPercentage}% nodig. Bekijk je foute
+					 antwoorden en probeer alleen deze vragen opnieuw.
+				</p>
+				<div className="completion-screen__stats">
+					<div>
+						<small>Jouw resultaat</small>
+						<strong>{assessment.scorePercentage}%</strong>
+						<span>nog niet voldoende</span>
+					</div>
+					<div>
+						<small>Goed beantwoord</small>
+						<strong>{assessment.correctAnswers}</strong>
+						<span>van {assessment.totalQuestions} quizvragen</span>
+					</div>
+					<div>
+						<small>Opnieuw proberen</small>
+						<strong>{assessment.incorrectAnswers.length}</strong>
+						<span>foute of openstaande vragen</span>
+					</div>
+				</div>
+				<div className="completion-screen__answers">
+					<div>
+						<p className="eyebrow">Dit kan beter</p>
+						<h2>Fout beantwoorde vragen</h2>
+					</div>
+					<ul>
+						{assessment.incorrectAnswers.map(answer => (
+							<li key={answer.assignmentId}>
+								<span>
+									<Icon name="close" size={16} />
+								</span>
+								<div>
+									<small>{answer.sectionTitle}</small>
+									<strong>{answer.prompt}</strong>
+									<p>Jouw antwoord: {formatSelectedAnswer(answer.selectedAnswer)}</p>
+								</div>
+							</li>
+						))}
+					</ul>
+				</div>
+				<div className="completion-screen__actions">
+					<Button icon="edit" onClick={onRetry}>
+						Foute antwoorden opnieuw doen
+					</Button>
+					<Button onClick={() => onNavigate("/dashboard")} variant="secondary">
+						Later verder
+					</Button>
+				</div>
+			</div>
+		</section>
 	);
 }
 
@@ -440,6 +605,12 @@ function getOptionLabel(value: unknown): string | null {
 	return null;
 }
 
+function formatSelectedAnswer(value: string | null): string {
+	const normalizedValue = value?.trim();
+	if (!normalizedValue) return "Niet beantwoord";
+	return normalizedValue;
+}
+
 function formatLessonContent(content: string): ReactElement {
 	const paragraphs = content
 		.split(/\n{2,}/)
@@ -469,14 +640,14 @@ function clampPosition(position: number, sectionCount: number): number {
 
 function getCompletionMessage(unlockedBadgeCount: number): string {
 	if (unlockedBadgeCount <= 0) {
-		return "Geweldig! Je hebt de e-learning afgerond.";
+		return "Geweldig! Je bent geslaagd voor de e-learning.";
 	}
 
 	if (unlockedBadgeCount === 1) {
-		return "Geweldig! Je hebt de e-learning afgerond en een nieuwe badge vrijgespeeld.";
+		return "Geweldig! Je bent geslaagd en hebt een nieuwe badge vrijgespeeld.";
 	}
 
-	return `Geweldig! Je hebt de e-learning afgerond en ${unlockedBadgeCount} nieuwe badges vrijgespeeld.`;
+	return `Geweldig! Je bent geslaagd en hebt ${unlockedBadgeCount} nieuwe badges vrijgespeeld.`;
 }
 
 function getBadgeUnlockMessage(

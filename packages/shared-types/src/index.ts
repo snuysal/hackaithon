@@ -205,6 +205,8 @@ export const ENROLLMENT_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"] a
 
 export type EnrollmentStatus = (typeof ENROLLMENT_STATUSES)[number];
 
+export const QUIZ_PASS_PERCENTAGE = 70;
+
 export type EnrollmentView = {
     id: string;
     userId: string;
@@ -247,8 +249,6 @@ export type ProgressUpdateRequest = {
     assignmentId?: string;
     answerText?: string;
     answerJson?: string;
-    isCorrect?: boolean;
-    score?: number;
     timeSpentSeconds?: number;
     position?: number;
     markCompleted?: boolean;
@@ -266,9 +266,27 @@ export type ProgressEntryView = {
     updatedAtIso: string;
 };
 
+export type IncorrectQuizAnswerView = {
+    sectionId: string;
+    sectionTitle: string;
+    assignmentId: string;
+    prompt: string;
+    selectedAnswer: string | null;
+};
+
+export type QuizAssessmentView = {
+    totalQuestions: number;
+    correctAnswers: number;
+    incorrectAnswers: IncorrectQuizAnswerView[];
+    scorePercentage: number;
+    requiredPercentage: number;
+    passed: boolean;
+};
+
 export type EnrollmentResumeView = {
     enrollment: EnrollmentView;
     progressEntries: ProgressEntryView[];
+    assessment: QuizAssessmentView;
     newlyAwardedBadges: BadgeAwardView[];
 };
 

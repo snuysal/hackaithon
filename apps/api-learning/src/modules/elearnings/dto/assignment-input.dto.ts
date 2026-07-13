@@ -1,5 +1,5 @@
 import { ASSIGNMENT_TYPES, type AssignmentInput, type AssignmentType } from "@hackaithon/shared-types";
-import { IsIn, IsInt, IsOptional, IsString, Min } from "class-validator";
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateIf } from "class-validator";
 
 export class AssignmentInputDto implements AssignmentInput {
     @IsIn(ASSIGNMENT_TYPES)
@@ -8,12 +8,14 @@ export class AssignmentInputDto implements AssignmentInput {
     @IsString()
     prompt!: string;
 
-    @IsOptional()
+    @ValidateIf((assignment: AssignmentInputDto) => assignment.assignmentType === "QUIZ")
     @IsString()
+    @IsNotEmpty()
     optionsJson?: string;
 
-    @IsOptional()
+    @ValidateIf((assignment: AssignmentInputDto) => assignment.assignmentType === "QUIZ")
     @IsString()
+    @IsNotEmpty()
     correctAnswerJson?: string;
 
     @IsOptional()

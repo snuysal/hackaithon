@@ -4,6 +4,7 @@ import test from "node:test";
 import { buildGamificationSummary, calculateCurrentStreakDays, meetsBadgeRule } from "./gamification.js";
 import { mapUserToAuthView, mapUserToSummary } from "./user-mapper.js";
 import { parseActorRole } from "./role-parser.js";
+import { calculateQuizAssessment, type QuizAssessmentQuestion } from "./quiz-assessment.js";
 import { assertCanManageElearnings, assertSuperuser, canManageElearnings, isSuperuser } from "./superuser-policy.js";
 import { parseRequiredUserId } from "./user-id-parser.js";
 
@@ -154,3 +155,57 @@ void test("should be able to match badge rules and surface the next badge goal",
 		progressPercent: 67,
 	});
 });
+
+void test("should be able to require an exact quiz score of at least seventy percent", (): void => {
+	const roundedUpAssessment = calculateQuizAssessment(
+		createQuizQuestions(23),
+		createQuizProgress(23, 16)
+	);
+	const passingAssessment = calculateQuizAssessment(
+		createQuizQuestions(10),
+		createQuizProgress(10, 7)
+	);
+
+	assert.equal(roundedUpAssessment.scorePercentage, 70);
+	assert.equal(roundedUpAssessment.passed, false);
+	assert.equal(passingAssessment.scorePercentage, 70);
+	assert.equal(passingAssessment.passed, true);
+});
+
+void test("should be able to exclude open questions from the quiz assessment", (): void => {
+	const assessment = calculateQuizAssessment([], [
+		{
+			assignmentId: "open-assignment-1",
+			answerText: "Mijn open antwoord",
+			isCorrect: null,
+		},
+	]);
+
+	assert.equal(assessment.totalQuestions, 0);
+	assert.equal(assessment.scorePercentage, 100);
+	assert.equal(assessment.passed, true);
+});
+
+function createQuizQuestions(count: number): QuizAssessmentQuestion[] {
+	return Array.from({ length: count }, (_, index) => ({
+		id: `assignment-${index + 1}`,
+		prompt: `Question ${index + 1}`,
+		section: {
+			id: `section-${index + 1}`,
+			title: `Section ${index + 1}`,
+			orderIndex: index,
+		},
+	}));
+}
+
+function createQuizProgress(totalQuestions: number, correctAnswers: number): Array<{
+	assignmentId: string;
+	answerText: string;
+	isCorrect: boolean;
+}> {
+	return Array.from({ length: totalQuestions }, (_, index) => ({
+		assignmentId: `assignment-${index + 1}`,
+		answerText: `Answer ${index + 1}`,
+		isCorrect: index < correctAnswers,
+	}));
+}
