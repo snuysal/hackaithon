@@ -58,7 +58,7 @@ export function CourseDetailPage({ elearningId, onNavigate, session }: CourseDet
 			/>
 		);
 
-	const duration = Math.max(15, course.sections.length * 20);
+	const duration = course.estimatedDurationMinutes;
 	const progress = historyItem
 		? historyItem.status === "COMPLETED"
 			? 100
@@ -148,7 +148,10 @@ export function CourseDetailPage({ elearningId, onNavigate, session }: CourseDet
 									<span>{String(index + 1).padStart(2, "0")}</span>
 									<div>
 										<strong>{section.title}</strong>
-										<small>{section.assignment ? "Lesstof en opdracht" : "Lesstof"} · circa 20 min</small>
+										<small>
+											{section.assignment ? "Lesstof en opdracht" : "Lesstof"} - circa{" "}
+											{section.estimatedDurationMinutes} min
+										</small>
 									</div>
 									<Icon name={historyItem && historyItem.lastPosition > index ? "check" : "book"} size={19} />
 								</li>

@@ -5,6 +5,7 @@ import type {
 	ElearningSummary,
 	ElearningView,
 } from "@hackaithon/shared-types";
+import { estimateElearningDurationMinutes } from "@hackaithon/shared-types";
 import { useEffect, useState, type ReactElement } from "react";
 
 import { Icon } from "../components/Icon.js";
@@ -253,6 +254,7 @@ function CourseEditor({ course, onCancel, onFeedback, onSaved, session }: Course
 	const [step, setStep] = useState(1);
 	const [error, setError] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
+	const estimatedDurationMinutes = estimateDraftDurationMinutes(draft);
 
 	function goNext(): void {
 		const validationError = validateStep(draft, step);
@@ -522,7 +524,7 @@ function CourseEditor({ course, onCancel, onFeedback, onSaved, session }: Course
 							</div>
 							<div>
 								<dt>Geschatte duur</dt>
-								<dd>{Math.max(15, draft.sections.length * 20)} min</dd>
+								<dd>{estimatedDurationMinutes} min</dd>
 							</div>
 						</dl>
 						<ol>
@@ -647,6 +649,25 @@ function buildPayload(draft: CourseDraft): CreateElearningRequest {
 		})),
 		title: draft.title.trim(),
 	};
+}
+
+function estimateDraftDurationMinutes(draft: CourseDraft): number {
+	return estimateElearningDurationMinutes({
+		description: draft.description,
+		level: draft.level,
+		sections: draft.sections.map(section => ({
+			title: section.title,
+			content: section.content,
+			assignment:
+				section.assignmentType === "NONE"
+					? null
+					: {
+							assignmentType: section.assignmentType,
+							optionsJson: section.assignmentType === "QUIZ" ? JSON.stringify(getOptionLines(section.optionsText)) : null,
+							prompt: section.prompt,
+						},
+		})),
+	});
 }
 
 function getOptionLines(value: string): string[] {

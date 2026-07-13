@@ -370,7 +370,6 @@ export function CourseCard({
 	primaryLabel = "Bekijk e-learning",
 	progress,
 }: CourseCardProps): ReactElement {
-	const duration = Math.max(15, course.sectionCount * 20);
 	return (
 		<Card as="article" className="course-card">
 			<div className={`course-card__visual course-card__visual--${course.level.toLowerCase()}`}>
@@ -382,7 +381,7 @@ export function CourseCard({
 			<div className="course-card__body">
 				<div className="course-card__meta">
 					<span>
-						<Icon name="clock" size={16} /> {duration} min
+						<Icon name="clock" size={16} /> {course.estimatedDurationMinutes} min
 					</span>
 					<span>
 						<Icon name="layers" size={16} /> {course.sectionCount} onderdelen

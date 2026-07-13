@@ -4,6 +4,7 @@ import type {
     HistorySummaryItem,
     ProgressEntryView,
 } from "@hackaithon/shared-types";
+import { estimateElearningDurationMinutes } from "@hackaithon/shared-types";
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { UserRepository } from "../users/user.repository.js";
@@ -28,7 +29,16 @@ type DbHistoryEnrollment = {
         level: "JUNIOR" | "MEDIOR" | "SENIOR";
         status: "DRAFT" | "PUBLISHED";
         publishedAt: Date | null;
-        sections: Array<{ id: string }>;
+        sections: Array<{
+            id: string;
+            title: string;
+            content: string;
+            assignment: {
+                assignmentType: "QUIZ" | "OPEN_TEXT";
+                prompt: string;
+                optionsJson: string | null;
+            } | null;
+        }>;
     };
     progressEntries: Array<{
         id: string;
@@ -116,6 +126,18 @@ export class HistoryService {
                         sections: {
                             select: {
                                 id: true,
+                                title: true,
+                                content: true,
+                                assignment: {
+                                    select: {
+                                        assignmentType: true,
+                                        prompt: true,
+                                        optionsJson: true,
+                                    },
+                                },
+                            },
+                            orderBy: {
+                                orderIndex: "asc",
                             },
                         },
                     },
@@ -159,6 +181,11 @@ export class HistoryService {
                 level: typedEnrollment.elearning.level,
                 status: typedEnrollment.elearning.status,
                 sectionCount: typedEnrollment.elearning.sections.length,
+                estimatedDurationMinutes: estimateElearningDurationMinutes({
+                    description: typedEnrollment.elearning.description,
+                    level: typedEnrollment.elearning.level,
+                    sections: typedEnrollment.elearning.sections,
+                }),
                 publishedAtIso: typedEnrollment.elearning.publishedAt
                     ? typedEnrollment.elearning.publishedAt.toISOString()
                     : null,

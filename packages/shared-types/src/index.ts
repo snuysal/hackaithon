@@ -18,6 +18,18 @@ export const ASSIGNMENT_TYPES = ["QUIZ", "OPEN_TEXT"] as const;
 
 export type AssignmentType = (typeof ASSIGNMENT_TYPES)[number];
 
+const WORDS_PER_MINUTE_BY_LEVEL: Record<ElearningLevel, number> = {
+    JUNIOR: 220,
+    MEDIOR: 190,
+    SENIOR: 160,
+};
+
+const SECTION_OVERHEAD_MINUTES = 0.75;
+const QUIZ_ASSIGNMENT_MINUTES = 1.5;
+const OPEN_TEXT_ASSIGNMENT_MINUTES = 3.5;
+const MIN_SECTION_DURATION_MINUTES = 3;
+const MIN_ELEARNING_DURATION_MINUTES = 5;
+
 export type SignupRequest = {
     name: string;
     email: string;
@@ -111,6 +123,7 @@ export type ElearningSectionView = {
     title: string;
     content: string;
     orderIndex: number;
+    estimatedDurationMinutes: number;
     assignment: AssignmentView | null;
 };
 
@@ -124,6 +137,7 @@ export type ElearningView = {
     createdAtIso: string;
     updatedAtIso: string;
     createdById: string;
+    estimatedDurationMinutes: number;
     sections: ElearningSectionView[];
 };
 
@@ -134,8 +148,50 @@ export type ElearningSummary = {
     level: ElearningLevel;
     status: ElearningStatus;
     sectionCount: number;
+    estimatedDurationMinutes: number;
     publishedAtIso: string | null;
 };
+
+export type DurationEstimateAssignment = {
+    assignmentType: AssignmentType;
+    prompt?: string | null;
+    optionsJson?: string | null;
+};
+
+export type DurationEstimateSection = {
+    title?: string | null;
+    content: string;
+    assignment?: DurationEstimateAssignment | null;
+};
+
+export type DurationEstimateInput = {
+    description?: string | null;
+    level: ElearningLevel;
+    sections: DurationEstimateSection[];
+};
+
+export function estimateSectionDurationMinutes(level: ElearningLevel, section: DurationEstimateSection): number {
+    const readingMinutes =
+        countWords(section.title) / WORDS_PER_MINUTE_BY_LEVEL[level] +
+        countWords(section.content) / WORDS_PER_MINUTE_BY_LEVEL[level] +
+        countWords(section.assignment?.prompt) / WORDS_PER_MINUTE_BY_LEVEL[level] +
+        countWords(getAssignmentOptionsText(section.assignment?.optionsJson)) / WORDS_PER_MINUTE_BY_LEVEL[level];
+
+    const assignmentMinutes = getAssignmentDurationMinutes(section.assignment);
+
+    return Math.max(MIN_SECTION_DURATION_MINUTES, Math.ceil(readingMinutes + SECTION_OVERHEAD_MINUTES + assignmentMinutes));
+}
+
+export function estimateElearningDurationMinutes({
+    description,
+    level,
+    sections,
+}: DurationEstimateInput): number {
+    const descriptionMinutes = countWords(description) / WORDS_PER_MINUTE_BY_LEVEL[level];
+    const sectionMinutes = sections.reduce((total, section) => total + estimateSectionDurationMinutes(level, section), 0);
+
+    return Math.max(MIN_ELEARNING_DURATION_MINUTES, Math.ceil(descriptionMinutes + sectionMinutes));
+}
 
 export const ENROLLMENT_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"] as const;
 
@@ -201,3 +257,30 @@ export type HistoryDetailView = {
     elearning: ElearningSummary;
     progressEntries: ProgressEntryView[];
 };
+
+function countWords(value: string | null | undefined): number {
+    if (!value) return 0;
+
+    return value
+        .trim()
+        .split(/\s+/u)
+        .filter(Boolean).length;
+}
+
+function getAssignmentDurationMinutes(assignment: DurationEstimateAssignment | null | undefined): number {
+    if (!assignment) return 0;
+    if (assignment.assignmentType === "QUIZ") return QUIZ_ASSIGNMENT_MINUTES;
+    return OPEN_TEXT_ASSIGNMENT_MINUTES;
+}
+
+function getAssignmentOptionsText(optionsJson: string | null | undefined): string {
+    if (!optionsJson) return "";
+
+    try {
+        const parsed = JSON.parse(optionsJson) as unknown;
+        if (!Array.isArray(parsed)) return optionsJson;
+        return parsed.filter((option): option is string => typeof option === "string").join(" ");
+    } catch {
+        return optionsJson;
+    }
+}

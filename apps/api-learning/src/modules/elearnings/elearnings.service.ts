@@ -1,4 +1,11 @@
-import type { AppRole, ElearningSectionView, ElearningSummary, ElearningView } from "@hackaithon/shared-types";
+import {
+	estimateElearningDurationMinutes,
+	estimateSectionDurationMinutes,
+	type AppRole,
+	type ElearningSectionView,
+	type ElearningSummary,
+	type ElearningView,
+} from "@hackaithon/shared-types";
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { assertCanManageElearnings, canManageElearnings } from "../../common/superuser-policy.js";
@@ -26,6 +33,12 @@ type DbSection = {
 	assignment: DbAssignment | null;
 };
 
+type DbSummaryAssignment = Pick<DbAssignment, "assignmentType" | "optionsJson" | "prompt">;
+
+type DbSummarySection = Pick<DbSection, "content" | "id" | "title"> & {
+	assignment: DbSummaryAssignment | null;
+};
+
 type DbElearning = {
 	id: string;
 	title: string;
@@ -46,7 +59,7 @@ type DbPublicElearning = {
 	level: "JUNIOR" | "MEDIOR" | "SENIOR";
 	status: "DRAFT" | "PUBLISHED";
 	publishedAt: Date | null;
-	sections: Array<{ id: string }>;
+	sections: DbSummarySection[];
 };
 
 const elearningInclude = {
@@ -56,6 +69,26 @@ const elearningInclude = {
 		},
 		orderBy: {
 			orderIndex: "asc",
+		},
+	},
+} as const;
+
+const elearningSummaryInclude = {
+	sections: {
+		orderBy: {
+			orderIndex: "asc",
+		},
+		select: {
+			id: true,
+			title: true,
+			content: true,
+			assignment: {
+				select: {
+					assignmentType: true,
+					optionsJson: true,
+					prompt: true,
+				},
+			},
 		},
 	},
 } as const;
@@ -208,13 +241,7 @@ export class ElearningsService {
 			where: {
 				status: "PUBLISHED",
 			},
-			include: {
-				sections: {
-					select: {
-						id: true,
-					},
-				},
-			},
+			include: elearningSummaryInclude,
 			orderBy: {
 				updatedAt: "desc",
 			},
@@ -229,13 +256,7 @@ export class ElearningsService {
 
 		const elearnings: DbPublicElearning[] = await this.prisma.elearning.findMany({
 			where: actorRole === "ADMIN" ? undefined : { createdById: actorUserId },
-			include: {
-				sections: {
-					select: {
-						id: true,
-					},
-				},
-			},
+			include: elearningSummaryInclude,
 			orderBy: {
 				updatedAt: "desc",
 			},
@@ -267,6 +288,8 @@ export class ElearningsService {
 }
 
 function mapDbElearningToView(dbElearning: DbElearning): ElearningView {
+	const sections = dbElearning.sections.map(section => mapDbSectionToView(section, dbElearning.level));
+
 	return {
 		id: dbElearning.id,
 		title: dbElearning.title,
@@ -277,16 +300,22 @@ function mapDbElearningToView(dbElearning: DbElearning): ElearningView {
 		createdAtIso: dbElearning.createdAt.toISOString(),
 		updatedAtIso: dbElearning.updatedAt.toISOString(),
 		createdById: dbElearning.createdById,
-		sections: dbElearning.sections.map(mapDbSectionToView),
+		estimatedDurationMinutes: estimateElearningDurationMinutes({
+			description: dbElearning.description,
+			level: dbElearning.level,
+			sections,
+		}),
+		sections,
 	};
 }
 
-function mapDbSectionToView(section: DbSection): ElearningSectionView {
+function mapDbSectionToView(section: DbSection, level: DbElearning["level"]): ElearningSectionView {
 	return {
 		id: section.id,
 		title: section.title,
 		content: section.content,
 		orderIndex: section.orderIndex,
+		estimatedDurationMinutes: estimateSectionDurationMinutes(level, section),
 		assignment: section.assignment
 			? {
 					id: section.assignment.id,
@@ -309,6 +338,11 @@ function mapDbElearningToSummary(elearning: DbPublicElearning): ElearningSummary
 		level: elearning.level,
 		status: elearning.status,
 		sectionCount: elearning.sections.length,
+		estimatedDurationMinutes: estimateElearningDurationMinutes({
+			description: elearning.description,
+			level: elearning.level,
+			sections: elearning.sections,
+		}),
 		publishedAtIso: elearning.publishedAt ? elearning.publishedAt.toISOString() : null,
 	};
 }
