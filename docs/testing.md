@@ -14,7 +14,17 @@ Run focused suites:
 npm run test:api
 npm run test:portal
 npm run test:coverage
+npm run test:report
 ```
+
+Generate focused HTML reports:
+
+```bash
+npm run test:report:api
+npm run test:report:portal
+```
+
+`npm run test:report` writes a local UI to `reports/tests/index.html` and also stores the raw JUnit output in `reports/tests/junit.xml`. Open the HTML file in your browser to inspect the results.
 
 ## Current coverage
 
@@ -22,6 +32,7 @@ npm run test:coverage
 - API unit tests for parsers, policies, mappers and services
 - HTTP-level Nest controller tests with validation and query parsing
 - Frontend tests for router behavior, API/session helpers and core course-card rendering
+- Local HTML report generation for browsing test results outside the terminal
 
 ## Extending the suite
 

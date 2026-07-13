@@ -4,5 +4,6 @@ dist/
 *.env
 !.env.example
 .vite/
+reports/
 packages/database/prisma/dev.db
 packages/database/prisma/dev.db-journal
