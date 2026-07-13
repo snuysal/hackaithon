@@ -29,12 +29,14 @@ Agentic AI writes the code. You steer, validate and ship.
 - A live streak rewards consecutive learning days
 - The dashboard highlights points, unlocked badges and the next milestone
 
-## Quiz assessment
+## Assessment and open-answer review
 
 - Multiple-choice answers are checked and scored by the API; clients cannot submit their own score or correct status.
-- A learner passes an e-learning with at least 70% correct multiple-choice answers.
-- Wrong and unanswered quiz questions are shown after an unsuccessful attempt and can be retried separately.
-- Open questions are saved but are not included in the assessment yet.
+- A learner passes an e-learning with at least 70% correct answers across scored multiple-choice and reviewed open questions.
+- Open questions move a submitted e-learning to `Wacht op nakijken` until a trainer or admin reviews them.
+- Trainers and admins can review open answers via `Antwoorden nakijken`, give a grade from 1 to 10 and add optional feedback.
+- Open questions pass with a grade of 5.5 or higher; lower grades are shown to the learner for retry.
+- Wrong, unanswered or failed questions are shown after an unsuccessful attempt and can be retried separately.
 
 ## Run locally
 
@@ -74,6 +76,12 @@ Default onboarding e-learnings:
 - `Werken met Cerios Academy` is available to trainers and admins and explains navigation, content creation, publishing and user management.
 - `Welkom bij Cerios Academy` is available to participants and explains the dashboard, catalog, learning flow and gamification.
 - Published e-learnings are filtered by audience. Content managers select `Students`, `Trainers and admins` or `Everyone` in the e-learning editor.
+
+Manual review flow:
+
+- Learners submit e-learnings with open questions from the normal learning screen.
+- Trainers see only review items for e-learnings they created; admins see all review items.
+- Dashboard notifications show how many open answers are waiting for review.
 
 Stop services:
 

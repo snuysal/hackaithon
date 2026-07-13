@@ -1,9 +1,10 @@
-import type { EnrollmentResumeView, EnrollmentView } from "@hackaithon/shared-types";
+import type { EnrollmentResumeView, EnrollmentView, PendingOpenAnswerReviewView } from "@hackaithon/shared-types";
 import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 
 import { parseActorRole } from "../../common/role-parser.js";
 import { parseRequiredUserId } from "../../common/user-id-parser.js";
 import { ProgressUpdateDto } from "./dto/progress-update.dto.js";
+import { ReviewOpenAnswerDto } from "./dto/review-open-answer.dto.js";
 import { EnrollmentsService } from "./enrollments.service.js";
 
 @Controller()
@@ -45,5 +46,29 @@ export class EnrollmentsController {
         const actorUserId = parseRequiredUserId(actorUserIdParam);
 
         return this.enrollmentsService.getResume(enrollmentId, actorRole, actorUserId);
+    }
+
+    @Get("reviews/open-answers")
+    public listPendingOpenAnswerReviews(
+        @Query("actorRole") actorRoleParam: unknown,
+        @Query("actorUserId") actorUserIdParam: unknown
+    ): Promise<PendingOpenAnswerReviewView[]> {
+        const actorRole = parseActorRole(actorRoleParam);
+        const actorUserId = parseRequiredUserId(actorUserIdParam);
+
+        return this.enrollmentsService.listPendingOpenAnswerReviews(actorRole, actorUserId);
+    }
+
+    @Patch("reviews/open-answers/:id")
+    public reviewOpenAnswer(
+        @Param("id") progressEntryId: string,
+        @Body() payload: ReviewOpenAnswerDto,
+        @Query("actorRole") actorRoleParam: unknown,
+        @Query("actorUserId") actorUserIdParam: unknown
+    ): Promise<EnrollmentResumeView> {
+        const actorRole = parseActorRole(actorRoleParam);
+        const actorUserId = parseRequiredUserId(actorUserIdParam);
+
+        return this.enrollmentsService.reviewOpenAnswer(progressEntryId, payload, actorRole, actorUserId);
     }
 }

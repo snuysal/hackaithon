@@ -12,6 +12,7 @@ import { CourseDetailPage } from "./pages/CourseDetailPage.js";
 import { DashboardPage } from "./pages/DashboardPage.js";
 import { HistoryPage } from "./pages/HistoryPage.js";
 import { LearningPage } from "./pages/LearningPage.js";
+import { ReviewQueuePage } from "./pages/ReviewQueuePage.js";
 import type { AppRoute, FeedbackMessage, SessionState } from "./types.js";
 
 export function App(): ReactElement {
@@ -39,12 +40,12 @@ export function App(): ReactElement {
 
 		if (
 			session &&
-			route.name === "manage-courses" &&
+			(route.name === "manage-courses" || route.name === "reviews") &&
 			session.user.role !== "ADMIN" &&
 			session.user.role !== "TRAINER"
 		) {
 			navigate("/dashboard", true);
-			setFeedback({ type: "error", text: "Je hebt geen toegang tot e-learningbeheer." });
+			setFeedback({ type: "error", text: "Je hebt geen toegang tot dit beheerscherm." });
 		}
 	}, [route.name, session]);
 
@@ -112,6 +113,7 @@ export function App(): ReactElement {
 	);
 }
 
+// oxlint-disable-next-line eslint/complexity -- Route rendering centralizes access-aware page selection for this small SPA.
 function renderRoute(
 	route: AppRoute,
 	session: SessionState,
@@ -145,6 +147,12 @@ function renderRoute(
 			);
 		case "history":
 			return <HistoryPage onNavigate={navigate} session={session} />;
+		case "reviews":
+			return session.user.role === "ADMIN" || session.user.role === "TRAINER" ? (
+				<ReviewQueuePage onFeedback={onFeedback} session={session} />
+			) : (
+				<LoadingState />
+			);
 		case "manage-courses":
 			return session.user.role === "ADMIN" || session.user.role === "TRAINER" ? (
 				<AdminCoursesPage onFeedback={onFeedback} session={session} />

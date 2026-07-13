@@ -119,13 +119,7 @@ export function CatalogPage({ onNavigate, session }: CatalogPageProps): ReactEle
 								key={course.id}
 								onOpen={() => onNavigate(`/catalogus/${encodeURIComponent(course.id)}`)}
 								onPrimary={canLearn ? () => onNavigate(`/leren/${encodeURIComponent(course.id)}`) : undefined}
-								primaryLabel={
-									enrollment?.status === "IN_PROGRESS"
-										? "Ga verder"
-										: enrollment?.status === "COMPLETED"
-											? "Nogmaals bekijken"
-											: "Start e-learning"
-								}
+								primaryLabel={getPrimaryLabel(enrollment)}
 								progress={progress}
 							/>
 						);
@@ -160,5 +154,13 @@ export function CatalogPage({ onNavigate, session }: CatalogPageProps): ReactEle
 
 function getProgress(history: HistorySummaryItem, course: ElearningSummary): number {
 	if (history.status === "COMPLETED") return 100;
+	if (history.status === "AWAITING_REVIEW") return 100;
 	return Math.min(95, Math.round(((history.lastPosition + 1) / Math.max(course.sectionCount, 1)) * 100));
+}
+
+function getPrimaryLabel(enrollment: HistorySummaryItem | undefined): string {
+	if (enrollment?.status === "IN_PROGRESS") return "Ga verder";
+	if (enrollment?.status === "AWAITING_REVIEW") return "Bekijk beoordeling";
+	if (enrollment?.status === "COMPLETED") return "Nogmaals bekijken";
+	return "Start e-learning";
 }

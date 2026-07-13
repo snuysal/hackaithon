@@ -1,8 +1,8 @@
 import type {
+	CourseAssessmentView,
 	ElearningSectionView,
 	ElearningView,
 	EnrollmentResumeView,
-	QuizAssessmentView,
 } from "@hackaithon/shared-types";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 
@@ -62,6 +62,8 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 
 	const activeSection = course?.sections[currentIndex];
 	const isCompleted = resume?.enrollment.status === "COMPLETED";
+	const isAwaitingReview = resume?.enrollment.status === "AWAITING_REVIEW";
+	const isReadOnly = isCompleted || isAwaitingReview;
 	const retryIndexes = useMemo(() => {
 		if (!course || !retrySectionIds) return null;
 		return retrySectionIds
@@ -85,7 +87,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 			: undefined;
 
 	useEffect(() => {
-		if (!dirtySectionId || !resume || !course || isCompleted) {
+		if (!dirtySectionId || !resume || !course || isReadOnly) {
 			return;
 		}
 
@@ -109,7 +111,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 
 	const progressValue = useMemo(() => {
 		if (!course || course.sections.length === 0) return 0;
-		if (isCompleted || isFinished) return 100;
+		if (isCompleted || isAwaitingReview || isFinished) return 100;
 		if (retryIndexes) {
 			return Math.round((Math.max(retryPosition, 0) / Math.max(retryIndexes.length, 1)) * 100);
 		}
@@ -121,7 +123,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 		position: number,
 		markCompleted: boolean
 	): Promise<EnrollmentResumeView | null> {
-		if (!resume || isCompleted) return resume;
+		if (!resume || isReadOnly) return resume;
 
 		const updatedResume = await saveProgress(session, resume.enrollment.id, {
 			sectionId: section.id,
@@ -138,7 +140,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 	}
 
 	function updateAnswer(value: string): void {
-		if (!activeSection || isCompleted) return;
+		if (!activeSection || isReadOnly) return;
 		setAnswers(current => ({ ...current, [activeSection.id]: value }));
 		setDirtySectionId(activeSection.id);
 		setSaveStatus("idle");
@@ -169,7 +171,13 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 			setDirtySectionId(null);
 			setSaveStatus("saved");
 			setIsFinished(true);
-			if (updatedResume.assessment.passed) {
+			if (updatedResume.assessment.awaitingReview) {
+				setRetrySectionIds(null);
+				onFeedback({
+					type: "info",
+					text: "Je antwoorden zijn ingestuurd. Een trainer of beheerder kijkt je open vragen na.",
+				});
+			} else if (updatedResume.assessment.passed) {
 				setRetrySectionIds(null);
 				onFeedback({
 					type: "success",
@@ -191,7 +199,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 	function startRetry(): void {
 		if (!course || !resume || resume.assessment.incorrectAnswers.length === 0) return;
 
-		const incorrectSectionIds = resume.assessment.incorrectAnswers.map(answer => answer.sectionId);
+		const incorrectSectionIds = [...new Set(resume.assessment.incorrectAnswers.map(answer => answer.sectionId))];
 		const firstRetryIndex = course.sections.findIndex(section => section.id === incorrectSectionIds[0]);
 		setAnswers(current => ({
 			...current,
@@ -236,6 +244,17 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 			/>
 		);
 
+	if (isAwaitingReview || (isFinished && resume.assessment.awaitingReview)) {
+		return (
+			<AssessmentPendingScreen
+				assessment={resume.assessment}
+				courseTitle={course.title}
+				onNavigate={onNavigate}
+				userName={session.user.name.split(" ")[0] ?? session.user.name}
+			/>
+		);
+	}
+
 	if (isFinished) {
 		if (!resume.assessment.passed) {
 			return (
@@ -276,7 +295,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 						<div>
 							<small>Goed beantwoord</small>
 							<strong>{resume.assessment.correctAnswers}</strong>
-							<span>van {resume.assessment.totalQuestions} quizvragen</span>
+							<span>van {resume.assessment.totalQuestions} vragen</span>
 						</div>
 						<div>
 							<small>Nieuwe badges</small>
@@ -378,7 +397,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 						</p>
 						<h1 id="lesson-title">{activeSection.title}</h1>
 					</div>
-					<SaveIndicator status={isCompleted ? "idle" : saveStatus} />
+					<SaveIndicator status={isReadOnly ? "idle" : saveStatus} />
 				</header>
 
 				<Card className="lesson-content">
@@ -396,7 +415,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 							</div>
 							{activeSection.assignment.assignmentType === "QUIZ" ? (
 								<QuizOptions
-									disabled={isCompleted}
+									disabled={isReadOnly}
 									onChange={updateAnswer}
 									options={parseQuizOptions(activeSection.assignment.optionsJson)}
 									selectedValue={answers[activeSection.id] ?? ""}
@@ -405,16 +424,16 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 								<div className="assignment__answer">
 									<label htmlFor="lesson-answer">Jouw antwoord</label>
 									<TextArea
-										disabled={isCompleted}
+										disabled={isReadOnly}
 										id="lesson-answer"
 										onChange={event => updateAnswer(event.target.value)}
 										placeholder="Schrijf hier je antwoord. Dit wordt automatisch opgeslagen."
 										value={answers[activeSection.id] ?? ""}
 									/>
 									<small>
-										{isCompleted
-											? "Deze e-learning is afgerond; je antwoord is alleen-lezen."
-											: "Je antwoord wordt automatisch opgeslagen. Open vragen tellen voorlopig niet mee voor je resultaat."}
+										{isReadOnly
+											? "Deze e-learning is ingestuurd; je antwoord is alleen-lezen."
+											: "Je antwoord wordt automatisch opgeslagen. Open vragen tellen mee na beoordeling door een trainer of beheerder."}
 									</small>
 								</div>
 							)}
@@ -460,7 +479,7 @@ export function LearningPage({ elearningId, onFeedback, onNavigate, session }: L
 }
 
 type AssessmentRetryScreenProps = {
-	assessment: QuizAssessmentView;
+	assessment: CourseAssessmentView;
 	courseTitle: string;
 	onNavigate: (path: string) => void;
 	onRetry: () => void;
@@ -500,7 +519,7 @@ function AssessmentRetryScreen({
 					<div>
 						<small>Goed beantwoord</small>
 						<strong>{assessment.correctAnswers}</strong>
-						<span>van {assessment.totalQuestions} quizvragen</span>
+						<span>van {assessment.totalQuestions} vragen</span>
 					</div>
 					<div>
 						<small>Opnieuw proberen</small>
@@ -520,9 +539,13 @@ function AssessmentRetryScreen({
 									<Icon name="close" size={16} />
 								</span>
 								<div>
-									<small>{answer.sectionTitle}</small>
+									<small>
+										{answer.assignmentType === "OPEN_TEXT" ? "Open vraag" : "Quizvraag"} - {answer.sectionTitle}
+									</small>
 									<strong>{answer.prompt}</strong>
 									<p>Jouw antwoord: {formatSelectedAnswer(answer.selectedAnswer)}</p>
+									{answer.grade === null ? null : <p>Beoordeling: {formatGrade(answer.grade)}</p>}
+									{answer.reviewerComment ? <p>Feedback: {answer.reviewerComment}</p> : null}
 								</div>
 							</li>
 						))}
@@ -534,6 +557,64 @@ function AssessmentRetryScreen({
 					</Button>
 					<Button onClick={() => onNavigate("/dashboard")} variant="secondary">
 						Later verder
+					</Button>
+				</div>
+			</div>
+		</section>
+	);
+}
+
+type AssessmentPendingScreenProps = {
+	assessment: CourseAssessmentView;
+	courseTitle: string;
+	onNavigate: (path: string) => void;
+	userName: string;
+};
+
+function AssessmentPendingScreen({
+	assessment,
+	courseTitle,
+	onNavigate,
+	userName,
+}: AssessmentPendingScreenProps): ReactElement {
+	return (
+		<section className="completion-screen completion-screen--pending">
+			<div aria-hidden="true" className="completion-screen__rings">
+				<span />
+				<span />
+				<span />
+			</div>
+			<div className="completion-screen__content">
+				<div className="completion-screen__icon">
+					<Icon name="clock" size={36} />
+				</div>
+				<p className="eyebrow">Ingestuurd</p>
+				<h1>Je antwoorden worden nagekeken, {userName}</h1>
+				<p>
+					Voor <strong>{courseTitle}</strong> wachten je open vragen op beoordeling. Zodra alles is nagekeken,
+					telt je resultaat mee in de {assessment.requiredPercentage}%-norm.
+				</p>
+				<div className="completion-screen__stats">
+					<div>
+						<small>Voorlopige score</small>
+						<strong>{assessment.scorePercentage}%</strong>
+						<span>kan nog stijgen na beoordeling</span>
+					</div>
+					<div>
+						<small>Wacht op review</small>
+						<strong>{assessment.pendingReviewAnswers.length}</strong>
+						<span>open {assessment.pendingReviewAnswers.length === 1 ? "vraag" : "vragen"}</span>
+					</div>
+					<div>
+						<small>Goed beantwoord</small>
+						<strong>{assessment.correctAnswers}</strong>
+						<span>van {assessment.totalQuestions} vragen</span>
+					</div>
+				</div>
+				<div className="completion-screen__actions">
+					<Button onClick={() => onNavigate("/dashboard")}>Naar dashboard</Button>
+					<Button onClick={() => onNavigate("/historie")} variant="secondary">
+						Bekijk historie
 					</Button>
 				</div>
 			</div>
@@ -609,6 +690,10 @@ function formatSelectedAnswer(value: string | null): string {
 	const normalizedValue = value?.trim();
 	if (!normalizedValue) return "Niet beantwoord";
 	return normalizedValue;
+}
+
+function formatGrade(value: number): string {
+	return value.toLocaleString("nl-NL", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 }
 
 function formatLessonContent(content: string): ReactElement {

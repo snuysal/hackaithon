@@ -60,7 +60,7 @@ export function CourseDetailPage({ elearningId, onNavigate, session }: CourseDet
 
 	const duration = course.estimatedDurationMinutes;
 	const progress = historyItem
-		? historyItem.status === "COMPLETED"
+		? historyItem.status === "COMPLETED" || historyItem.status === "AWAITING_REVIEW"
 			? 100
 			: Math.min(95, Math.round(((historyItem.lastPosition + 1) / Math.max(course.sections.length, 1)) * 100))
 		: 0;
@@ -92,18 +92,20 @@ export function CourseDetailPage({ elearningId, onNavigate, session }: CourseDet
 					{historyItem ? (
 						<div className="course-hero__progress">
 							<ProgressBar
-								label={historyItem.status === "COMPLETED" ? "Afgerond" : "Jouw voortgang"}
+								label={
+									historyItem.status === "COMPLETED"
+										? "Afgerond"
+										: historyItem.status === "AWAITING_REVIEW"
+											? "In beoordeling"
+											: "Jouw voortgang"
+								}
 								value={progress}
 							/>
 						</div>
 					) : null}
 					{canLearn ? (
 						<Button icon="play" onClick={() => onNavigate(`/leren/${encodeURIComponent(course.id)}`)}>
-							{historyItem?.status === "IN_PROGRESS"
-								? "Ga verder waar je was"
-								: historyItem?.status === "COMPLETED"
-									? "Bekijk opnieuw"
-									: "Start e-learning"}
+							{getPrimaryLabel(historyItem)}
 						</Button>
 					) : (
 						<div className="course-access-note">
@@ -189,7 +191,7 @@ export function CourseDetailPage({ elearningId, onNavigate, session }: CourseDet
 								iconPosition="end"
 								onClick={() => onNavigate(`/leren/${encodeURIComponent(course.id)}`)}
 							>
-								{historyItem?.status === "IN_PROGRESS" ? "Verder leren" : "Aan de slag"}
+								{historyItem?.status === "AWAITING_REVIEW" ? "Bekijk beoordeling" : "Aan de slag"}
 							</Button>
 						) : null}
 					</Card>
@@ -197,4 +199,11 @@ export function CourseDetailPage({ elearningId, onNavigate, session }: CourseDet
 			</div>
 		</>
 	);
+}
+
+function getPrimaryLabel(historyItem: HistorySummaryItem | null): string {
+	if (historyItem?.status === "IN_PROGRESS") return "Ga verder waar je was";
+	if (historyItem?.status === "AWAITING_REVIEW") return "Bekijk beoordeling";
+	if (historyItem?.status === "COMPLETED") return "Bekijk opnieuw";
+	return "Start e-learning";
 }

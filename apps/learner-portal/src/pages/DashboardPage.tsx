@@ -1,4 +1,10 @@
-import type { BadgeGoalView, ElearningSummary, GamificationSummaryView, HistorySummaryItem } from "@hackaithon/shared-types";
+import type {
+	BadgeGoalView,
+	ElearningSummary,
+	GamificationSummaryView,
+	HistorySummaryItem,
+	PendingOpenAnswerReviewView,
+} from "@hackaithon/shared-types";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 
 import { Icon } from "../components/Icon.js";
@@ -12,7 +18,7 @@ import {
 	PageHeader,
 	StatusBadge,
 } from "../components/ui.js";
-import { getGamificationSummary, listHistory, listPublicElearnings } from "../lib/api.js";
+import { getGamificationSummary, listHistory, listPendingOpenAnswerReviews, listPublicElearnings } from "../lib/api.js";
 import type { SessionState } from "../types.js";
 
 type DashboardPageProps = {
@@ -25,22 +31,26 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 	const [courses, setCourses] = useState<ElearningSummary[]>([]);
 	const [gamification, setGamification] = useState<GamificationSummaryView | null>(null);
 	const [history, setHistory] = useState<HistorySummaryItem[]>([]);
+	const [pendingReviews, setPendingReviews] = useState<PendingOpenAnswerReviewView[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
 	const canLearn = session.user.canAccessLearning || session.user.role === "ADMIN";
+	const canReview = session.user.role === "ADMIN" || session.user.role === "TRAINER";
 
 	async function loadDashboard(): Promise<void> {
 		setIsLoading(true);
 		setError("");
 		try {
-			const [courseItems, historyItems, gamificationSummary] = await Promise.all([
+			const [courseItems, historyItems, gamificationSummary, reviewItems] = await Promise.all([
 				listPublicElearnings(session),
 				canLearn ? listHistory(session) : Promise.resolve([]),
 				canLearn ? getGamificationSummary(session) : Promise.resolve(null),
+				canReview ? listPendingOpenAnswerReviews(session) : Promise.resolve([]),
 			]);
 			setCourses(courseItems);
 			setHistory(historyItems);
 			setGamification(gamificationSummary);
+			setPendingReviews(reviewItems);
 		} catch (caughtError: unknown) {
 			setError((caughtError as Error).message);
 		} finally {
@@ -52,7 +62,7 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 		void loadDashboard();
 	}, [session.user.id]);
 
-	const activeHistory = history.filter(item => item.status === "IN_PROGRESS");
+	const activeHistory = history.filter(item => item.status === "IN_PROGRESS" || item.status === "AWAITING_REVIEW");
 	const completedHistory = history.filter(item => item.status === "COMPLETED");
 	const totalScore = gamification?.totalScore ?? history.reduce((sum, item) => sum + item.totalScore, 0);
 	const activeCourses = useMemo(
@@ -105,12 +115,28 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 				</Card>
 			) : null}
 
+			{canReview && pendingReviews.length > 0 ? (
+				<Card className="review-banner">
+					<div className="review-banner__icon">
+						<Icon name="edit" />
+					</div>
+					<div>
+						<p className="eyebrow">Nakijken</p>
+						<h2>{pendingReviews.length} open {pendingReviews.length === 1 ? "antwoord wacht" : "antwoorden wachten"}</h2>
+						<p>Beoordeel vrije invoervragen zodat deelnemers hun resultaat kunnen afronden.</p>
+					</div>
+					<Button onClick={() => onNavigate("/beheer/nakijken")} icon="arrow-right" iconPosition="end">
+						Naar nakijklijst
+					</Button>
+				</Card>
+			) : null}
+
 			<section aria-label="Leerstatistieken" className="stats-grid">
 				<StatCard
 					icon="book"
 					label="Actief"
 					value={activeHistory.length}
-					supportingText="e-learnings om verder te gaan"
+					supportingText="e-learnings bezig of in beoordeling"
 				/>
 				<StatCard icon="check" label="Afgerond" value={completedHistory.length} supportingText="behaalde e-learnings" />
 				<StatCard icon="award" label="Kennispunten" value={totalScore} supportingText="opgebouwd met opdrachten" />
@@ -141,7 +167,7 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 									key={course.id}
 									onOpen={() => onNavigate(`/catalogus/${encodeURIComponent(course.id)}`)}
 									onPrimary={() => onNavigate(`/leren/${encodeURIComponent(course.id)}`)}
-									primaryLabel="Ga verder"
+									primaryLabel={item.status === "AWAITING_REVIEW" ? "Bekijk beoordeling" : "Ga verder"}
 									progress={getProgress(item, course)}
 								/>
 							))}
@@ -183,6 +209,18 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 							</span>
 							<Icon name="arrow-right" size={17} />
 						</button>
+						{session.user.role === "ADMIN" || session.user.role === "TRAINER" ? (
+							<button onClick={() => onNavigate("/beheer/nakijken")} type="button">
+								<span>
+									<Icon name="edit" />
+								</span>
+								<span>
+									<strong>Antwoorden nakijken</strong>
+									<small>{pendingReviews.length} open antwoorden klaar</small>
+								</span>
+								<Icon name="arrow-right" size={17} />
+							</button>
+						) : null}
 						{session.user.role === "ADMIN" || session.user.role === "TRAINER" ? (
 							<button onClick={() => onNavigate("/beheer/elearnings")} type="button">
 								<span>
@@ -274,7 +312,7 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 										<div>
 											<strong>{item.elearningTitle}</strong>
 											<small>
-												{item.status === "COMPLETED" ? "Afgerond" : "Laatst bekeken"} ·{" "}
+												{getHistoryStatusText(item.status)} ·{" "}
 												{formatRelativeDate(item.updatedAtIso)}
 											</small>
 										</div>
@@ -315,7 +353,14 @@ function StatCard({ icon, label, supportingText, value }: StatCardProps): ReactE
 
 function getProgress(history: HistorySummaryItem, course: ElearningSummary): number {
 	if (history.status === "COMPLETED") return 100;
+	if (history.status === "AWAITING_REVIEW") return 100;
 	return Math.min(95, Math.round(((history.lastPosition + 1) / Math.max(course.sectionCount, 1)) * 100));
+}
+
+function getHistoryStatusText(status: HistorySummaryItem["status"]): string {
+	if (status === "COMPLETED") return "Afgerond";
+	if (status === "AWAITING_REVIEW") return "Wacht op nakijken";
+	return "Laatst bekeken";
 }
 
 function getGreeting(): string {

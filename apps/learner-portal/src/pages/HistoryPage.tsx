@@ -24,7 +24,7 @@ type HistoryPageProps = {
 
 export function HistoryPage({ onNavigate, session }: HistoryPageProps): ReactElement {
 	const [items, setItems] = useState<HistorySummaryItem[]>([]);
-	const [filter, setFilter] = useState<"ALL" | "IN_PROGRESS" | "COMPLETED">("ALL");
+	const [filter, setFilter] = useState<"ALL" | "IN_PROGRESS" | "AWAITING_REVIEW" | "COMPLETED">("ALL");
 	const [detail, setDetail] = useState<HistoryDetailView | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -123,6 +123,7 @@ export function HistoryPage({ onNavigate, session }: HistoryPageProps): ReactEle
 				>
 					<option value="ALL">Alle statussen</option>
 					<option value="IN_PROGRESS">Bezig</option>
+					<option value="AWAITING_REVIEW">Wacht op nakijken</option>
 					<option value="COMPLETED">Afgerond</option>
 				</Select>
 			</div>
@@ -178,11 +179,14 @@ export function HistoryPage({ onNavigate, session }: HistoryPageProps): ReactEle
 type HistoryCardProps = { isLoading: boolean; item: HistorySummaryItem; onDetail: () => void; onResume: () => void };
 
 function HistoryCard({ isLoading, item, onDetail, onResume }: HistoryCardProps): ReactElement {
-	const progress = item.status === "COMPLETED" ? 100 : Math.min(90, Math.max(10, (item.lastPosition + 1) * 20));
+	const progress =
+		item.status === "COMPLETED" || item.status === "AWAITING_REVIEW"
+			? 100
+			: Math.min(90, Math.max(10, (item.lastPosition + 1) * 20));
 	return (
 		<Card as="article" className="history-card">
 			<div className={`history-card__icon history-card__icon--${item.status.toLowerCase()}`}>
-				<Icon name={item.status === "COMPLETED" ? "check" : "book"} />
+				<Icon name={item.status === "COMPLETED" || item.status === "AWAITING_REVIEW" ? "check" : "book"} />
 			</div>
 			<div className="history-card__copy">
 				<div>
@@ -208,13 +212,19 @@ function HistoryCard({ isLoading, item, onDetail, onResume }: HistoryCardProps):
 				</div>
 			</div>
 			<div className="history-card__actions">
-				<Button onClick={onResume}>{item.status === "COMPLETED" ? "Nogmaals bekijken" : "Verder leren"}</Button>
+				<Button onClick={onResume}>{getHistoryActionLabel(item.status)}</Button>
 				<Button disabled={isLoading} onClick={onDetail} variant="ghost">
 					Activiteit
 				</Button>
 			</div>
 		</Card>
 	);
+}
+
+function getHistoryActionLabel(status: HistorySummaryItem["status"]): string {
+	if (status === "COMPLETED") return "Nogmaals bekijken";
+	if (status === "AWAITING_REVIEW") return "Bekijk status";
+	return "Verder leren";
 }
 
 function HistoryDetail({

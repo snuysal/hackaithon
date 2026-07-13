@@ -39,6 +39,7 @@ enum ElearningAudience {
 enum EnrollmentStatus {
 	NOT_STARTED
 	IN_PROGRESS
+	AWAITING_REVIEW
 	COMPLETED
 }
 
@@ -158,11 +159,15 @@ model Enrollment {
 }
 
 model ProgressEntry {
-	id              String   @id @default(cuid())
-	answerText      String?
-	answerJson      String?
-	isCorrect       Boolean?
-	score           Int      @default(0)
+	id               String   @id @default(cuid())
+	answerText       String?
+	answerJson       String?
+	isCorrect        Boolean?
+	score            Int      @default(0)
+	grade            Float?
+	reviewComment    String?
+	reviewedAt       DateTime?
+	reviewedById     String?
 	timeSpentSeconds Int     @default(0)
 	updatedAt       DateTime @updatedAt
 	createdAt       DateTime @default(now())

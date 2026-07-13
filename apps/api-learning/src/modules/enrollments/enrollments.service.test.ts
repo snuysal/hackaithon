@@ -102,12 +102,17 @@ void test("should be able to store a wrong quiz answer and pass after retrying i
 				sectionId: "section-1",
 				sectionTitle: "Quiz section",
 				assignmentId: "assignment-1",
+				assignmentType: "QUIZ",
 				prompt: "Choose the correct answer",
 				selectedAnswer: "Wrong answer",
+				grade: null,
+				reviewerComment: null,
 			},
 		],
+		pendingReviewAnswers: [],
 		scorePercentage: 0,
 		requiredPercentage: 70,
+		awaitingReview: false,
 		passed: false,
 	});
 
@@ -197,6 +202,7 @@ function createEnrollmentContext(input: {
 				Promise.resolve([
 					{
 						id: quizAssignment.id,
+						assignmentType: quizAssignment.assignmentType,
 						prompt: quizAssignment.prompt,
 						section: {
 							id: "section-1",
@@ -253,11 +259,19 @@ function createEnrollmentContext(input: {
 					answerJson: string | null;
 					isCorrect: boolean | null;
 					score: number;
+					grade?: number | null;
+					reviewComment?: string | null;
+					reviewedAt?: Date | null;
+					reviewedById?: string | null;
 					timeSpentSeconds: number;
 				};
 			}): Promise<void> => {
 				progressEntries.push({
 					id: `progress-${progressEntries.length + 1}`,
+					grade: data.grade ?? null,
+					reviewComment: data.reviewComment ?? null,
+					reviewedAt: data.reviewedAt ?? null,
+					reviewedById: data.reviewedById ?? null,
 					updatedAt: new Date(),
 					...data,
 				});
@@ -370,7 +384,7 @@ type EnrollmentRecord = {
 	id: string;
 	userId: string;
 	elearningId: string;
-	status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+	status: "NOT_STARTED" | "IN_PROGRESS" | "AWAITING_REVIEW" | "COMPLETED";
 	startedAt: Date | null;
 	completedAt: Date | null;
 	lastPosition: number;
@@ -389,6 +403,10 @@ type ProgressEntryRecord = {
 	answerJson: string | null;
 	isCorrect: boolean | null;
 	score: number;
+	grade: number | null;
+	reviewComment: string | null;
+	reviewedAt: Date | null;
+	reviewedById: string | null;
 	timeSpentSeconds: number;
 	updatedAt: Date;
 };
@@ -423,6 +441,7 @@ type AssignmentRecord = {
 
 type QuizQuestionRecord = {
 	id: string;
+	assignmentType: "QUIZ" | "OPEN_TEXT";
 	prompt: string;
 	section: {
 		id: string;
@@ -459,6 +478,10 @@ type PrismaDouble = {
 				answerJson: string | null;
 				isCorrect: boolean | null;
 				score: number;
+				grade?: number | null;
+				reviewComment?: string | null;
+				reviewedAt?: Date | null;
+				reviewedById?: string | null;
 				timeSpentSeconds: number;
 			};
 		}) => Promise<void>;

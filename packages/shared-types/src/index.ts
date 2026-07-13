@@ -201,11 +201,15 @@ export function estimateElearningDurationMinutes({
     return Math.max(MIN_ELEARNING_DURATION_MINUTES, Math.ceil(descriptionMinutes + sectionMinutes));
 }
 
-export const ENROLLMENT_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"] as const;
+export const ENROLLMENT_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "AWAITING_REVIEW", "COMPLETED"] as const;
 
 export type EnrollmentStatus = (typeof ENROLLMENT_STATUSES)[number];
 
-export const QUIZ_PASS_PERCENTAGE = 70;
+export const ASSESSMENT_PASS_PERCENTAGE = 70;
+
+export const QUIZ_PASS_PERCENTAGE = ASSESSMENT_PASS_PERCENTAGE;
+
+export const OPEN_QUESTION_PASS_GRADE = 5.5;
 
 export type EnrollmentView = {
     id: string;
@@ -262,32 +266,65 @@ export type ProgressEntryView = {
     answerJson: string | null;
     isCorrect: boolean | null;
     score: number;
+    grade: number | null;
+    reviewComment: string | null;
+    reviewedAtIso: string | null;
+    reviewedById: string | null;
     timeSpentSeconds: number;
     updatedAtIso: string;
 };
 
-export type IncorrectQuizAnswerView = {
+export type AssessmentAnswerView = {
     sectionId: string;
     sectionTitle: string;
     assignmentId: string;
+    assignmentType: AssignmentType;
     prompt: string;
     selectedAnswer: string | null;
+    grade: number | null;
+    reviewerComment: string | null;
 };
 
-export type QuizAssessmentView = {
+export type CourseAssessmentView = {
     totalQuestions: number;
     correctAnswers: number;
-    incorrectAnswers: IncorrectQuizAnswerView[];
+    incorrectAnswers: AssessmentAnswerView[];
+    pendingReviewAnswers: AssessmentAnswerView[];
     scorePercentage: number;
     requiredPercentage: number;
+    awaitingReview: boolean;
     passed: boolean;
 };
+
+export type IncorrectQuizAnswerView = AssessmentAnswerView;
+
+export type QuizAssessmentView = CourseAssessmentView;
 
 export type EnrollmentResumeView = {
     enrollment: EnrollmentView;
     progressEntries: ProgressEntryView[];
     assessment: QuizAssessmentView;
     newlyAwardedBadges: BadgeAwardView[];
+};
+
+export type PendingOpenAnswerReviewView = {
+    progressEntryId: string;
+    enrollmentId: string;
+    userId: string;
+    userName: string;
+    elearningId: string;
+    elearningTitle: string;
+    sectionId: string;
+    sectionTitle: string;
+    assignmentId: string;
+    prompt: string;
+    answerText: string;
+    submittedAtIso: string;
+};
+
+export type OpenAnswerReviewRequest = {
+    grade: number;
+    comment?: string;
 };
 
 export type HistorySummaryItem = {

@@ -4,7 +4,7 @@ import test from "node:test";
 import { buildGamificationSummary, calculateCurrentStreakDays, meetsBadgeRule } from "./gamification.js";
 import { mapUserToAuthView, mapUserToSummary } from "./user-mapper.js";
 import { parseActorRole } from "./role-parser.js";
-import { calculateQuizAssessment, type QuizAssessmentQuestion } from "./quiz-assessment.js";
+import { calculateQuizAssessment, type QuizAssessmentProgress, type QuizAssessmentQuestion } from "./quiz-assessment.js";
 import { assertCanManageElearnings, assertSuperuser, canManageElearnings, isSuperuser } from "./superuser-policy.js";
 import { parseRequiredUserId } from "./user-id-parser.js";
 
@@ -172,23 +172,50 @@ void test("should be able to require an exact quiz score of at least seventy per
 	assert.equal(passingAssessment.passed, true);
 });
 
-void test("should be able to exclude open questions from the quiz assessment", (): void => {
-	const assessment = calculateQuizAssessment([], [
+void test("should be able to pause the assessment while answered open questions await review", (): void => {
+	const assessment = calculateQuizAssessment([createOpenQuestion(1)], [
 		{
 			assignmentId: "open-assignment-1",
 			answerText: "Mijn open antwoord",
+			grade: null,
 			isCorrect: null,
+			reviewComment: null,
 		},
 	]);
 
-	assert.equal(assessment.totalQuestions, 0);
-	assert.equal(assessment.scorePercentage, 100);
-	assert.equal(assessment.passed, true);
+	assert.equal(assessment.totalQuestions, 1);
+	assert.equal(assessment.awaitingReview, true);
+	assert.equal(assessment.pendingReviewAnswers.length, 1);
+	assert.equal(assessment.passed, false);
+});
+
+void test("should be able to include reviewed open questions in the seventy percent norm", (): void => {
+	const assessment = calculateQuizAssessment(
+		[...createQuizQuestions(1), createOpenQuestion(1)],
+		[
+			...createQuizProgress(1, 1),
+			{
+				assignmentId: "open-assignment-1",
+				answerText: "Sterk onderbouwd antwoord",
+				grade: 5.4,
+				isCorrect: false,
+				reviewComment: "Werk je voorbeeld verder uit.",
+			},
+		]
+	);
+
+	assert.equal(assessment.awaitingReview, false);
+	assert.equal(assessment.totalQuestions, 2);
+	assert.equal(assessment.correctAnswers, 1);
+	assert.equal(assessment.scorePercentage, 50);
+	assert.equal(assessment.passed, false);
+	assert.equal(assessment.incorrectAnswers[0]?.grade, 5.4);
 });
 
 function createQuizQuestions(count: number): QuizAssessmentQuestion[] {
 	return Array.from({ length: count }, (_, index) => ({
 		id: `assignment-${index + 1}`,
+		assignmentType: "QUIZ",
 		prompt: `Question ${index + 1}`,
 		section: {
 			id: `section-${index + 1}`,
@@ -198,14 +225,25 @@ function createQuizQuestions(count: number): QuizAssessmentQuestion[] {
 	}));
 }
 
-function createQuizProgress(totalQuestions: number, correctAnswers: number): Array<{
-	assignmentId: string;
-	answerText: string;
-	isCorrect: boolean;
-}> {
+function createOpenQuestion(index: number): QuizAssessmentQuestion {
+	return {
+		id: `open-assignment-${index}`,
+		assignmentType: "OPEN_TEXT",
+		prompt: `Open question ${index}`,
+		section: {
+			id: `open-section-${index}`,
+			title: `Open section ${index}`,
+			orderIndex: index + 100,
+		},
+	};
+}
+
+function createQuizProgress(totalQuestions: number, correctAnswers: number): QuizAssessmentProgress[] {
 	return Array.from({ length: totalQuestions }, (_, index) => ({
 		assignmentId: `assignment-${index + 1}`,
 		answerText: `Answer ${index + 1}`,
+		grade: null,
 		isCorrect: index < correctAnswers,
+		reviewComment: null,
 	}));
 }

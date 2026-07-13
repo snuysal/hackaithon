@@ -11,6 +11,8 @@ import type {
 	HistorySummaryItem,
 	LoginRequest,
 	LoginResponse,
+	OpenAnswerReviewRequest,
+	PendingOpenAnswerReviewView,
 	ProgressUpdateRequest,
 	SignupRequest,
 	SignupResponse,
@@ -137,6 +139,24 @@ export async function listHistory(session: SessionState): Promise<HistorySummary
 
 export async function getGamificationSummary(session: SessionState): Promise<GamificationSummaryView> {
 	return callApi<GamificationSummaryView>(`/me/history/gamification/summary?${buildActorQuery(session)}`);
+}
+
+export async function listPendingOpenAnswerReviews(session: SessionState): Promise<PendingOpenAnswerReviewView[]> {
+	return callApi<PendingOpenAnswerReviewView[]>(`/reviews/open-answers?${buildActorQuery(session)}`);
+}
+
+export async function reviewOpenAnswer(
+	session: SessionState,
+	progressEntryId: string,
+	payload: OpenAnswerReviewRequest
+): Promise<EnrollmentResumeView> {
+	return callApi<EnrollmentResumeView>(
+		`/reviews/open-answers/${encodeURIComponent(progressEntryId)}?${buildActorQuery(session)}`,
+		{
+			method: "PATCH",
+			body: JSON.stringify(payload),
+		}
+	);
 }
 
 export async function getHistoryDetail(session: SessionState, enrollmentId: string): Promise<HistoryDetailView> {

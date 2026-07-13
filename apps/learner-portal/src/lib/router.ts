@@ -39,6 +39,10 @@ export function parseRoute(pathname: string): AppRoute {
 		return { name: "history", path: "/historie" };
 	}
 
+	if (normalizedPath === "/beheer/nakijken") {
+		return { name: "reviews", path: "/beheer/nakijken" };
+	}
+
 	if (normalizedPath === "/beheer/elearnings") {
 		return { name: "manage-courses", path: "/beheer/elearnings" };
 	}

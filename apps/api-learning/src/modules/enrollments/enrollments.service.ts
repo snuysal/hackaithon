@@ -1,10 +1,12 @@
 import type {
     AppRole,
     BadgeAwardView,
+    CourseAssessmentView,
     EnrollmentResumeView,
     EnrollmentView,
+    OpenAnswerReviewRequest,
+    PendingOpenAnswerReviewView,
     ProgressEntryView,
-    QuizAssessmentView,
 } from "@hackaithon/shared-types";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
@@ -13,7 +15,7 @@ import {
     mapBadgeAward,
     meetsBadgeRule,
 } from "../../common/gamification.js";
-import { calculateQuizAssessment, type QuizAssessmentQuestion } from "../../common/quiz-assessment.js";
+import { calculateCourseAssessment, type QuizAssessmentQuestion } from "../../common/quiz-assessment.js";
 import { UserRepository } from "../users/user.repository.js";
 import { PrismaService } from "../database/prisma.service.js";
 import type { ProgressUpdateDto } from "./dto/progress-update.dto.js";
@@ -22,7 +24,7 @@ type DbEnrollment = {
     id: string;
     userId: string;
     elearningId: string;
-    status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+    status: "NOT_STARTED" | "IN_PROGRESS" | "AWAITING_REVIEW" | "COMPLETED";
     startedAt: Date | null;
     completedAt: Date | null;
     lastPosition: number;
@@ -40,6 +42,10 @@ type DbProgressEntry = {
     answerJson: string | null;
     isCorrect: boolean | null;
     score: number;
+    grade: number | null;
+    reviewComment: string | null;
+    reviewedAt: Date | null;
+    reviewedById: string | null;
     timeSpentSeconds: number;
     updatedAt: Date;
 };
@@ -156,16 +162,20 @@ export class EnrollmentsService {
         assertRoleMatchesStoredUser(actorRole, actorUser.role);
 
         const enrollment = await this.getAccessibleEnrollment(enrollmentId, actorUser.id, actorUser.role);
+        if (enrollment.status === "AWAITING_REVIEW") {
+            throw new BadRequestException("Deze e-learning wacht op beoordeling en kan nu niet worden aangepast.");
+        }
+
         await this.saveProgressEntry(enrollment, payload);
         const totalScore = await this.calculateTotalScore(enrollmentId);
         const progressEntries = await this.listProgressEntries(enrollmentId);
-        const assessment = await this.buildQuizAssessment(enrollment.elearningId, progressEntries);
+        const assessment = await this.buildCourseAssessment(enrollment.elearningId, progressEntries);
         const completedSuccessfully = Boolean(payload.markCompleted && assessment.passed);
         const updatedEnrollment = await this.updateEnrollmentAfterProgress(
             enrollment,
             payload,
             totalScore,
-            completedSuccessfully
+            assessment
         );
         const { enrollment: enrollmentWithGamification, newlyAwardedBadges } = await this.refreshGamification(
             actorUser.id,
@@ -191,13 +201,172 @@ export class EnrollmentsService {
 
         const enrollment = await this.getAccessibleEnrollment(enrollmentId, actorUser.id, actorUser.role);
         const progressEntries = await this.listProgressEntries(enrollmentId);
-        const assessment = await this.buildQuizAssessment(enrollment.elearningId, progressEntries);
+        const assessment = await this.buildCourseAssessment(enrollment.elearningId, progressEntries);
 
         return {
             enrollment: mapEnrollment(enrollment),
             progressEntries: progressEntries.map(mapProgressEntry),
             assessment,
             newlyAwardedBadges: [],
+        };
+    }
+
+    public async listPendingOpenAnswerReviews(
+        actorRole: AppRole,
+        actorUserId: string
+    ): Promise<PendingOpenAnswerReviewView[]> {
+        const actorUser = await this.userRepository.findById(actorUserId);
+        assertRoleMatchesStoredUser(actorRole, actorUser.role);
+        assertCanReviewOpenAnswers(actorUser.role);
+
+        const progressEntries = await this.prisma.progressEntry.findMany({
+            where: {
+                grade: null,
+                answerText: {
+                    not: null,
+                },
+                enrollment: {
+                    status: "AWAITING_REVIEW",
+                },
+                assignment: {
+                    assignmentType: "OPEN_TEXT",
+                    section: {
+                        elearning: actorUser.role === "TRAINER" ? { createdById: actorUser.id } : undefined,
+                    },
+                },
+            },
+            include: {
+                enrollment: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                    },
+                },
+                assignment: {
+                    include: {
+                        section: {
+                            include: {
+                                elearning: {
+                                    select: {
+                                        id: true,
+                                        title: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                updatedAt: "asc",
+            },
+        });
+
+        return progressEntries
+            .filter(entry => Boolean(entry.answerText?.trim()) && entry.assignment)
+            .map(entry => ({
+                progressEntryId: entry.id,
+                enrollmentId: entry.enrollmentId,
+                userId: entry.enrollment.user.id,
+                userName: entry.enrollment.user.name,
+                elearningId: entry.assignment?.section.elearning.id ?? "",
+                elearningTitle: entry.assignment?.section.elearning.title ?? "",
+                sectionId: entry.sectionId,
+                sectionTitle: entry.assignment?.section.title ?? "",
+                assignmentId: entry.assignmentId ?? "",
+                prompt: entry.assignment?.prompt ?? "",
+                answerText: entry.answerText ?? "",
+                submittedAtIso: entry.updatedAt.toISOString(),
+            }));
+    }
+
+    // oxlint-disable-next-line eslint/complexity -- Review completion intentionally coordinates authorization, grading, status and gamification.
+    public async reviewOpenAnswer(
+        progressEntryId: string,
+        payload: OpenAnswerReviewRequest,
+        actorRole: AppRole,
+        actorUserId: string
+    ): Promise<EnrollmentResumeView> {
+        const actorUser = await this.userRepository.findById(actorUserId);
+        assertRoleMatchesStoredUser(actorRole, actorUser.role);
+        assertCanReviewOpenAnswers(actorUser.role);
+
+        const progressEntry = await this.prisma.progressEntry.findUnique({
+            where: {
+                id: progressEntryId,
+            },
+            include: {
+                enrollment: true,
+                assignment: {
+                    include: {
+                        section: {
+                            include: {
+                                elearning: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!progressEntry || progressEntry.assignment?.assignmentType !== "OPEN_TEXT") {
+            throw new NotFoundException(`Open answer with id ${progressEntryId} was not found.`);
+        }
+
+        if (!progressEntry.answerText?.trim()) {
+            throw new BadRequestException("Een leeg antwoord kan niet worden nagekeken.");
+        }
+
+        if (actorUser.role === "TRAINER" && progressEntry.assignment.section.elearning.createdById !== actorUser.id) {
+            throw new ForbiddenException("Je kunt alleen open antwoorden van je eigen e-learnings nakijken.");
+        }
+
+        const previousEnrollment = progressEntry.enrollment;
+        const passedOpenQuestion = payload.grade >= 5.5;
+        await this.prisma.progressEntry.update({
+            where: {
+                id: progressEntry.id,
+            },
+            data: {
+                grade: payload.grade,
+                reviewComment: normalizeOptionalString(payload.comment),
+                reviewedAt: new Date(),
+                reviewedById: actorUser.id,
+                isCorrect: passedOpenQuestion,
+                score: passedOpenQuestion ? progressEntry.assignment.points : 0,
+            },
+        });
+
+        const totalScore = await this.calculateTotalScore(previousEnrollment.id);
+        const progressEntries = await this.listProgressEntries(previousEnrollment.id);
+        const assessment = await this.buildCourseAssessment(previousEnrollment.elearningId, progressEntries);
+        const completedSuccessfully = !assessment.awaitingReview && assessment.passed;
+        const updatedEnrollment = await this.prisma.enrollment.update({
+            where: {
+                id: previousEnrollment.id,
+            },
+            data: {
+                status: assessment.awaitingReview ? "AWAITING_REVIEW" : completedSuccessfully ? "COMPLETED" : "IN_PROGRESS",
+                completedAt: completedSuccessfully ? previousEnrollment.completedAt ?? new Date() : null,
+                totalScore,
+                streakDays: completedSuccessfully ? Math.max(previousEnrollment.streakDays, 1) : previousEnrollment.streakDays,
+            },
+        });
+        const { enrollment: enrollmentWithGamification, newlyAwardedBadges } = await this.refreshGamification(
+            previousEnrollment.userId,
+            updatedEnrollment,
+            completedSuccessfully && previousEnrollment.status !== "COMPLETED"
+        );
+
+        return {
+            enrollment: mapEnrollment(enrollmentWithGamification),
+            progressEntries: progressEntries.map(mapProgressEntry),
+            assessment,
+            newlyAwardedBadges,
         };
     }
 
@@ -221,6 +390,7 @@ export class EnrollmentsService {
         return enrollment;
     }
 
+    // oxlint-disable-next-line eslint/complexity -- Progress saving handles both quiz autosave and open-answer review reset paths.
     private async saveProgressEntry(enrollment: DbEnrollment, payload: ProgressUpdateDto): Promise<void> {
         const section = await this.prisma.elearningSection.findFirst({
             where: {
@@ -254,6 +424,15 @@ export class EnrollmentsService {
         const answerText = payload.answerText ?? existingProgressEntry?.answerText ?? null;
         const answerJson = payload.answerJson ?? existingProgressEntry?.answerJson ?? null;
         const evaluation = evaluateAssignment(assignment, answerText, answerJson);
+        const reviewResetData =
+            assignment?.assignmentType === "OPEN_TEXT"
+                ? {
+                    grade: null,
+                    reviewComment: null,
+                    reviewedAt: null,
+                    reviewedById: null,
+                }
+                : {};
 
         if (existingProgressEntry) {
             await this.prisma.progressEntry.update({
@@ -265,6 +444,7 @@ export class EnrollmentsService {
                     answerJson,
                     isCorrect: evaluation.isCorrect,
                     score: evaluation.score,
+                    ...reviewResetData,
                     timeSpentSeconds: payload.timeSpentSeconds ?? existingProgressEntry.timeSpentSeconds,
                 },
             });
@@ -281,6 +461,7 @@ export class EnrollmentsService {
                 answerJson,
                 isCorrect: evaluation.isCorrect,
                 score: evaluation.score,
+                ...reviewResetData,
                 timeSpentSeconds: payload.timeSpentSeconds ?? 0,
             },
         });
@@ -303,14 +484,17 @@ export class EnrollmentsService {
         enrollment: DbEnrollment,
         payload: ProgressUpdateDto,
         totalScore: number,
-        completedSuccessfully: boolean
+        assessment: CourseAssessmentView
     ): Promise<DbEnrollment> {
+        const completedSuccessfully = Boolean(payload.markCompleted && assessment.passed);
+        const status = getEnrollmentStatusAfterProgress(enrollment, payload.markCompleted === true, assessment);
+
         return this.prisma.enrollment.update({
             where: {
                 id: enrollment.id,
             },
             data: {
-                status: completedSuccessfully ? "COMPLETED" : "IN_PROGRESS",
+                status,
                 completedAt: completedSuccessfully ? enrollment.completedAt ?? new Date() : null,
                 startedAt: enrollment.startedAt ?? new Date(),
                 lastPosition: payload.position ?? enrollment.lastPosition,
@@ -331,19 +515,19 @@ export class EnrollmentsService {
         });
     }
 
-    private async buildQuizAssessment(
+    private async buildCourseAssessment(
         elearningId: string,
         progressEntries: DbProgressEntry[]
-    ): Promise<QuizAssessmentView> {
+    ): Promise<CourseAssessmentView> {
         const questions: QuizAssessmentQuestion[] = await this.prisma.assignment.findMany({
             where: {
-                assignmentType: "QUIZ",
                 section: {
                     elearningId,
                 },
             },
             select: {
                 id: true,
+                assignmentType: true,
                 prompt: true,
                 section: {
                     select: {
@@ -355,7 +539,7 @@ export class EnrollmentsService {
             },
         });
 
-        return calculateQuizAssessment(questions, progressEntries);
+        return calculateCourseAssessment(questions, progressEntries);
     }
 
     private async refreshGamification(
@@ -516,6 +700,10 @@ function mapProgressEntry(entry: DbProgressEntry): ProgressEntryView {
         answerJson: entry.answerJson,
         isCorrect: entry.isCorrect,
         score: entry.score,
+        grade: entry.grade,
+        reviewComment: entry.reviewComment,
+        reviewedAtIso: entry.reviewedAt ? entry.reviewedAt.toISOString() : null,
+        reviewedById: entry.reviewedById,
         timeSpentSeconds: entry.timeSpentSeconds,
         updatedAtIso: entry.updatedAt.toISOString(),
     };
@@ -613,6 +801,28 @@ function assertEnrollmentAccess(actorUserId: string, actorRole: AppRole, enrollm
     if (actorUserId !== enrollmentOwnerUserId) {
         throw new ForbiddenException("You cannot access another participant's enrollment.");
     }
+}
+
+function assertCanReviewOpenAnswers(actorRole: AppRole): void {
+    if (actorRole !== "ADMIN" && actorRole !== "TRAINER") {
+        throw new ForbiddenException("Je hebt geen toegang tot het nakijken van open antwoorden.");
+    }
+}
+
+function getEnrollmentStatusAfterProgress(
+    enrollment: DbEnrollment,
+    markCompleted: boolean,
+    assessment: CourseAssessmentView
+): DbEnrollment["status"] {
+    if (!markCompleted) {
+        return enrollment.status === "COMPLETED" ? "COMPLETED" : "IN_PROGRESS";
+    }
+
+    if (assessment.awaitingReview) {
+        return "AWAITING_REVIEW";
+    }
+
+    return assessment.passed ? "COMPLETED" : "IN_PROGRESS";
 }
 
 function isElearningAvailableForRole(

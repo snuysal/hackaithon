@@ -19,7 +19,7 @@ type DbHistoryEnrollment = {
     id: string;
     userId: string;
     elearningId: string;
-    status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+    status: "NOT_STARTED" | "IN_PROGRESS" | "AWAITING_REVIEW" | "COMPLETED";
     startedAt: Date | null;
     completedAt: Date | null;
     lastPosition: number;
@@ -54,6 +54,10 @@ type DbHistoryEnrollment = {
         answerJson: string | null;
         isCorrect: boolean | null;
         score: number;
+        grade: number | null;
+        reviewComment: string | null;
+        reviewedAt: Date | null;
+        reviewedById: string | null;
         timeSpentSeconds: number;
         updatedAt: Date;
     }>;
@@ -61,7 +65,7 @@ type DbHistoryEnrollment = {
 
 type DbHistorySummaryEnrollment = {
     id: string;
-    status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+    status: "NOT_STARTED" | "IN_PROGRESS" | "AWAITING_REVIEW" | "COMPLETED";
     startedAt: Date | null;
     completedAt: Date | null;
     lastPosition: number;
@@ -282,6 +286,10 @@ function mapProgressEntry(entry: DbHistoryEnrollment["progressEntries"][number])
         answerJson: entry.answerJson,
         isCorrect: entry.isCorrect,
         score: entry.score,
+        grade: entry.grade,
+        reviewComment: entry.reviewComment,
+        reviewedAtIso: entry.reviewedAt ? entry.reviewedAt.toISOString() : null,
+        reviewedById: entry.reviewedById,
         timeSpentSeconds: entry.timeSpentSeconds,
         updatedAtIso: entry.updatedAt.toISOString(),
     };
