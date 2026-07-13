@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { AuthService } from "./auth.service.js";
 
-void test("AuthService.signup normalizes e-mail addresses and creates participants", async (): Promise<void> => {
+void test("should be able to normalize e-mail addresses and create participants during signup", async (): Promise<void> => {
 	const repository = createUserRepository({
 		findByEmail: (): Promise<UserRecord | null> => Promise.resolve(null),
 		createParticipant: (input: CreateParticipantInput): Promise<UserRecord> =>
@@ -36,7 +36,7 @@ void test("AuthService.signup normalizes e-mail addresses and creates participan
 	assert.equal(repository.createParticipantCalls[0]?.email, "test@example.com");
 });
 
-void test("AuthService.signup rejects duplicate e-mail addresses", async (): Promise<void> => {
+void test("should be able to reject duplicate e-mail addresses during signup", async (): Promise<void> => {
 	const repository = createUserRepository({
 		findByEmail: (): Promise<UserRecord> =>
 			Promise.resolve({
@@ -66,7 +66,7 @@ void test("AuthService.signup rejects duplicate e-mail addresses", async (): Pro
 	);
 });
 
-void test("AuthService.login returns the right next route for approved and pending users", async (): Promise<void> => {
+void test("should be able to return the correct next route for approved and pending users during login", async (): Promise<void> => {
 	const approvedUser: UserRecord = {
 		id: "approved-1",
 		name: "Approved User",
@@ -102,7 +102,7 @@ void test("AuthService.login returns the right next route for approved and pendi
 	);
 });
 
-void test("AuthService.me validates input and maps the stored user", async (): Promise<void> => {
+void test("should be able to validate the me input and map the stored user response", async (): Promise<void> => {
 	const repository = createUserRepository({
 		findById: (userId: string): Promise<UserRecord> =>
 			Promise.resolve({

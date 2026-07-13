@@ -5,7 +5,7 @@ import { ElearningsController } from "./elearnings.controller.js";
 import { ElearningsService } from "./elearnings.service.js";
 import { createHttpTestApp, messageText, readJson } from "../../testing/http-test-app.js";
 
-void test("ElearningsController validates payloads and actor queries over HTTP", async (t: TestContext): Promise<void> => {
+void test("should be able to validate e-learning payloads and actor queries over HTTP", async (t: TestContext): Promise<void> => {
 	const calls: Array<{ actorRole: string; actorUserId: string; elearningId?: string; payload?: unknown }> = [];
 	const app = await createHttpTestApp({
 		controllers: [ElearningsController],
@@ -88,7 +88,7 @@ void test("ElearningsController validates payloads and actor queries over HTTP",
 	});
 });
 
-void test("ElearningsController rejects missing actorRole for managed endpoints", async (t: TestContext): Promise<void> => {
+void test("should be able to reject missing actor roles for managed e-learning endpoints", async (t: TestContext): Promise<void> => {
 	const app = await createHttpTestApp({
 		controllers: [ElearningsController],
 		providers: [

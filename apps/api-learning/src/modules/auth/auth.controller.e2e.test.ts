@@ -5,7 +5,7 @@ import { AuthController } from "./auth.controller.js";
 import { AuthService } from "./auth.service.js";
 import { createHttpTestApp, messageText, readJson } from "../../testing/http-test-app.js";
 
-void test("AuthController validates signup payloads and forwards valid requests", async (t: TestContext): Promise<void> => {
+void test("should be able to validate signup payloads and forward valid auth requests over HTTP", async (t: TestContext): Promise<void> => {
 	let capturedPayload: unknown;
 	const app = await createHttpTestApp({
 		controllers: [AuthController],
@@ -69,7 +69,7 @@ void test("AuthController validates signup payloads and forwards valid requests"
 	assert.deepEqual(JSON.parse(JSON.stringify(capturedPayload)), validPayload);
 });
 
-void test("AuthController exposes the current user over HTTP", async (t: TestContext): Promise<void> => {
+void test("should be able to expose the current user over HTTP", async (t: TestContext): Promise<void> => {
 	const app = await createHttpTestApp({
 		controllers: [AuthController],
 		providers: [

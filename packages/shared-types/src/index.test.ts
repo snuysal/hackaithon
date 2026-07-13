@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { estimateElearningDurationMinutes, estimateSectionDurationMinutes } from "./index.js";
 
-void test("estimateSectionDurationMinutes enforces a minimum duration", (): void => {
+void test("should be able to enforce a minimum duration for a section estimate", (): void => {
 	const duration = estimateSectionDurationMinutes("JUNIOR", {
 		title: "Intro",
 		content: "",
@@ -12,7 +12,7 @@ void test("estimateSectionDurationMinutes enforces a minimum duration", (): void
 	assert.equal(duration, 3);
 });
 
-void test("estimateSectionDurationMinutes scales with course level and assignment complexity", (): void => {
+void test("should be able to scale section duration estimates by level and assignment complexity", (): void => {
 	const longContent = repeatWord("woord", 700);
 
 	const juniorDuration = estimateSectionDurationMinutes("JUNIOR", {
@@ -46,7 +46,7 @@ void test("estimateSectionDurationMinutes scales with course level and assignmen
 	assert.ok(openTextDuration > quizDuration);
 });
 
-void test("estimateElearningDurationMinutes combines description and section estimates", (): void => {
+void test("should be able to combine description and section durations into an e-learning estimate", (): void => {
 	const duration = estimateElearningDurationMinutes({
 		description: repeatWord("samenvatting", 220),
 		level: "JUNIOR",

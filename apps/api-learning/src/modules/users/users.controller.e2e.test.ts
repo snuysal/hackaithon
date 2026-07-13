@@ -5,7 +5,7 @@ import { UsersController } from "./users.controller.js";
 import { UsersService } from "./users.service.js";
 import { createHttpTestApp, messageText, readJson } from "../../testing/http-test-app.js";
 
-void test("UsersController validates actorRole and update payloads over HTTP", async (t: TestContext): Promise<void> => {
+void test("should be able to validate user admin actor roles and update payloads over HTTP", async (t: TestContext): Promise<void> => {
 	const calls: Array<{ userId: string; actorRole: string; payload?: unknown }> = [];
 	const app = await createHttpTestApp({
 		controllers: [UsersController],

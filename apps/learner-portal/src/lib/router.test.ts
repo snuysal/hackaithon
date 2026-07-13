@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { parseRoute } from "./router.js";
 
-void test("parseRoute resolves supported portal routes", (): void => {
+void test("should be able to resolve supported portal routes", (): void => {
 	assert.deepEqual(parseRoute("/"), { name: "auth", path: "/login" });
 	assert.deepEqual(parseRoute("/catalogus"), { name: "catalog", path: "/catalogus" });
 	assert.deepEqual(parseRoute("/dashboard/"), { name: "dashboard", path: "/dashboard" });
@@ -12,7 +12,7 @@ void test("parseRoute resolves supported portal routes", (): void => {
 	assert.deepEqual(parseRoute("/beheer/gebruikers"), { name: "manage-users", path: "/beheer/gebruikers" });
 });
 
-void test("parseRoute decodes dynamic course and learning paths", (): void => {
+void test("should be able to decode dynamic course and learning routes", (): void => {
 	assert.deepEqual(parseRoute("/catalogus/course%201"), {
 		name: "course-detail",
 		path: "/catalogus/course%201",

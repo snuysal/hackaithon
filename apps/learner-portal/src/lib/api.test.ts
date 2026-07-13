@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { getElearning, readStoredSession, storeSession } from "./api.js";
 
-void test("session helpers round-trip valid data and clear invalid storage", (): void => {
+void test("should be able to store and restore a valid session while clearing invalid session data", (): void => {
 	const storage = createLocalStorage();
 	installLocalStorage(storage);
 
@@ -29,7 +29,7 @@ void test("session helpers round-trip valid data and clear invalid storage", ():
 	assert.equal(storage.getItem("hackaithon.session"), null);
 });
 
-void test("API helpers encode path parameters and actor context correctly", async (): Promise<void> => {
+void test("should be able to encode API path parameters and actor context correctly", async (): Promise<void> => {
 	const originalFetch = globalThis.fetch;
 	const calls: Array<{ input: string; init?: RequestInit }> = [];
 
@@ -91,7 +91,7 @@ void test("API helpers encode path parameters and actor context correctly", asyn
 	assert.equal(headers.get("Content-Type"), "application/json");
 });
 
-void test("API helpers translate backend and network failures into user-friendly errors", async (): Promise<void> => {
+void test("should be able to translate backend and network failures into user-friendly errors", async (): Promise<void> => {
 	const originalFetch = globalThis.fetch;
 
 	globalThis.fetch = (): Promise<Response> =>

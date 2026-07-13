@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { CourseCard } from "./ui.js";
 
-void test("CourseCard renders the estimated duration from the API model", (): void => {
+void test("should be able to render the estimated duration from the API model in the course card", (): void => {
 	const markup = renderToStaticMarkup(
 		createElement(CourseCard, {
 			course: {

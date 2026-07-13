@@ -4,7 +4,7 @@ import test from "node:test";
 import { ElearningsService } from "./elearnings.service.js";
 
 void test(
-	"ElearningsService.listManagedElearnings filters trainer data and returns estimated durations",
+	"should be able to filter managed e-learnings for a trainer and return estimated durations",
 	async (): Promise<void> => {
 		let capturedWhere: unknown;
 		const prisma = {
@@ -49,7 +49,7 @@ void test(
 	}
 );
 
-void test("ElearningsService.getElearningById blocks draft access for participants", async (): Promise<void> => {
+void test("should be able to block participant access to draft e-learnings by id", async (): Promise<void> => {
 	const prisma = {
 		elearning: {
 			findUnique: (): Promise<FullElearningRecord> =>

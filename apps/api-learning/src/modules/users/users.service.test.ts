@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { UsersService } from "./users.service.js";
 
-void test("UsersService.listPendingUsers only allows admins and maps repository output", async (): Promise<void> => {
+void test("should be able to restrict pending-user listings to admins and map the repository output", async (): Promise<void> => {
 	const repository = createUserRepository({
 		listByApprovalStatus: (status: ApprovalStatus): Promise<UserRecord[]> =>
 			Promise.resolve([
@@ -33,7 +33,7 @@ void test("UsersService.listPendingUsers only allows admins and maps repository 
 	]);
 });
 
-void test("UsersService approval and role mutations delegate to the repository", async (): Promise<void> => {
+void test("should be able to delegate user approval and role mutations to the repository", async (): Promise<void> => {
 	const repository = createUserRepository({
 		updateApprovalStatus: (userId: string, status: MutableApprovalStatus): Promise<UserRecord> =>
 			Promise.resolve(createUserRecord({ id: userId, approvalStatus: status })),

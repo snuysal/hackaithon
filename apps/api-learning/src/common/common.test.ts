@@ -6,20 +6,20 @@ import { parseActorRole } from "./role-parser.js";
 import { assertCanManageElearnings, assertSuperuser, canManageElearnings, isSuperuser } from "./superuser-policy.js";
 import { parseRequiredUserId } from "./user-id-parser.js";
 
-void test("parseActorRole accepts supported roles and rejects invalid values", (): void => {
+void test("should be able to accept supported actor roles and reject invalid values", (): void => {
 	assert.equal(parseActorRole("ADMIN"), "ADMIN");
 	assert.equal(parseActorRole("TRAINER"), "TRAINER");
 	assert.equal(parseActorRole("PARTICIPANT"), "PARTICIPANT");
 	assert.throws(() => parseActorRole("OWNER"), /actorRole must be one of/);
 });
 
-void test("parseRequiredUserId trims valid values and rejects empty input", (): void => {
+void test("should be able to trim a required user id and reject empty input", (): void => {
 	assert.equal(parseRequiredUserId("  user-123  "), "user-123");
 	assert.throws(() => parseRequiredUserId("   "), /actorUserId must be a non-empty string/);
 	assert.throws(() => parseRequiredUserId(undefined), /actorUserId must be a non-empty string/);
 });
 
-void test("superuser policy helpers reflect current authorization rules", (): void => {
+void test("should be able to enforce the current superuser and e-learning management rules", (): void => {
 	assert.equal(isSuperuser("ADMIN"), true);
 	assert.equal(isSuperuser("TRAINER"), false);
 	assert.equal(canManageElearnings("ADMIN"), true);
@@ -31,7 +31,7 @@ void test("superuser policy helpers reflect current authorization rules", (): vo
 	assert.throws(() => assertCanManageElearnings("PARTICIPANT"), /Only ADMIN or TRAINER can execute this action/);
 });
 
-void test("user mappers expose the expected frontend view models", (): void => {
+void test("should be able to map users to the expected frontend view models", (): void => {
 	const pendingUser = {
 		id: "user-1",
 		name: "Test User",
