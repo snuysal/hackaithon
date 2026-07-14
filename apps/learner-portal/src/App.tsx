@@ -12,6 +12,7 @@ import { CourseDetailPage } from "./pages/CourseDetailPage.js";
 import { DashboardPage } from "./pages/DashboardPage.js";
 import { HistoryPage } from "./pages/HistoryPage.js";
 import { LearningPage } from "./pages/LearningPage.js";
+import { ProfilePage } from "./pages/ProfilePage.js";
 import { ReviewQueuePage } from "./pages/ReviewQueuePage.js";
 import type { AppRoute, FeedbackMessage, SessionState } from "./types.js";
 
@@ -86,6 +87,13 @@ export function App(): ReactElement {
 		navigate("/login", true);
 	}
 
+	function handleUserUpdated(user: SessionState["user"]): void {
+		if (!session) return;
+		const updatedSession = { ...session, user };
+		storeSession(updatedSession);
+		setSession(updatedSession);
+	}
+
 	function dismissFeedback(): void {
 		setFeedback(null);
 	}
@@ -107,7 +115,7 @@ export function App(): ReactElement {
 			routePath={route.path}
 			user={session.user}
 		>
-			{renderRoute(route, session, setFeedback)}
+			{renderRoute(route, session, setFeedback, handleUserUpdated)}
 			{feedback ? <Toast message={feedback.text} onClose={dismissFeedback} type={feedback.type} /> : null}
 		</AppShell>
 	);
@@ -117,7 +125,8 @@ export function App(): ReactElement {
 function renderRoute(
 	route: AppRoute,
 	session: SessionState,
-	onFeedback: (feedback: FeedbackMessage) => void
+	onFeedback: (feedback: FeedbackMessage) => void,
+	onUserUpdated: (user: SessionState["user"]) => void
 ): ReactElement {
 	switch (route.name) {
 		case "auth":
@@ -147,6 +156,8 @@ function renderRoute(
 			);
 		case "history":
 			return <HistoryPage onNavigate={navigate} session={session} />;
+		case "profile":
+			return <ProfilePage onFeedback={onFeedback} onUserUpdated={onUserUpdated} session={session} />;
 		case "reviews":
 			return session.user.role === "ADMIN" || session.user.role === "TRAINER" ? (
 				<ReviewQueuePage onFeedback={onFeedback} session={session} />

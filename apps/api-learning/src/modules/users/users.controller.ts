@@ -1,13 +1,21 @@
 import type { UserSummary } from "@hackaithon/shared-types";
-import { Body, Controller, Get, Patch, Param, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Param, Query } from "@nestjs/common";
 
 import { parseActorRole } from "../../common/role-parser.js";
+import { parseRequiredUserId } from "../../common/user-id-parser.js";
 import { UpdateUserRoleDto } from "./dto/update-user-role.dto.js";
 import { UsersService } from "./users.service.js";
 
 @Controller("admin/users")
 export class UsersController {
     public constructor(private readonly usersService: UsersService) { }
+
+    @Get()
+    public listUsers(@Query("actorRole") actorRoleParam: unknown): Promise<UserSummary[]> {
+        const actorRole = parseActorRole(actorRoleParam);
+
+        return this.usersService.listUsers(actorRole);
+    }
 
     @Get("pending")
     public listPendingUsers(@Query("actorRole") actorRoleParam: unknown): Promise<UserSummary[]> {
@@ -39,5 +47,18 @@ export class UsersController {
         const actorRole = parseActorRole(actorRoleParam);
 
         return this.usersService.changeRole(userId, actorRole, payload);
+    }
+
+    @Delete(":id")
+    @HttpCode(HttpStatus.NO_CONTENT)
+    public deleteUser(
+        @Param("id") userId: string,
+        @Query("actorRole") actorRoleParam: unknown,
+        @Query("actorUserId") actorUserIdParam: unknown
+    ): Promise<void> {
+        const actorRole = parseActorRole(actorRoleParam);
+        const actorUserId = parseRequiredUserId(actorUserIdParam);
+
+        return this.usersService.deleteUser(userId, actorRole, actorUserId);
     }
 }

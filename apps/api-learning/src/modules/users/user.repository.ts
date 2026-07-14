@@ -24,6 +24,9 @@ type DbUserWithPrimaryTeam = {
     email: string;
     passwordHash: string;
     birthDate: Date;
+    addressLine: string | null;
+    postalCode: string | null;
+    city: string | null;
     role: AppRole;
     approvalStatus: ApprovalStatus;
     createdAt: Date;
@@ -40,6 +43,17 @@ export type CreateParticipantInput = {
     teamName: string;
     password: string;
     birthDateIso: string;
+};
+
+export type UpdateProfileInput = {
+    name: string;
+    email: string;
+    birthDateIso: string;
+    teamName: string;
+    addressLine?: string;
+    postalCode?: string;
+    city?: string;
+    password?: string;
 };
 
 @Injectable()
@@ -142,6 +156,86 @@ export class UserRepository {
         return users.map(mapDbUserToUserRecord);
     }
 
+    public async listAll(): Promise<UserRecord[]> {
+        await this.ensureSeeded();
+
+        const users = await this.prisma.user.findMany({
+            include: userWithPrimaryTeamInclude,
+            orderBy: [{ createdAt: "asc" }, { name: "asc" }],
+        });
+
+        return users.map(mapDbUserToUserRecord);
+    }
+
+    public async updateProfile(userId: string, input: UpdateProfileInput): Promise<UserRecord> {
+        await this.ensureSeeded();
+
+        try {
+            return await this.prisma.$transaction(async transaction => {
+                const team = await transaction.team.upsert({
+                    where: { name: input.teamName.trim() },
+                    create: { name: input.teamName.trim() },
+                    update: {},
+                });
+
+                await transaction.user.update({
+                    where: { id: userId },
+                    data: {
+                        name: input.name.trim(),
+                        email: normalizeEmail(input.email),
+                        birthDate: new Date(input.birthDateIso),
+                        addressLine: normalizeOptionalValue(input.addressLine),
+                        postalCode: normalizeOptionalValue(input.postalCode),
+                        city: normalizeOptionalValue(input.city),
+                        passwordHash: input.password,
+                    },
+                });
+
+                await transaction.userTeamMembership.deleteMany({ where: { userId } });
+                await transaction.userTeamMembership.create({
+                    data: { userId, teamId: team.id },
+                });
+
+                const user = await transaction.user.findUniqueOrThrow({
+                    where: { id: userId },
+                    include: userWithPrimaryTeamInclude,
+                });
+
+                return mapDbUserToUserRecord(user);
+            });
+        } catch (error: unknown) {
+            if (isRecordNotFoundError(error)) {
+                throw new NotFoundException(`User with id ${userId} was not found.`);
+            }
+
+            if (isDuplicateEmailError(error)) {
+                throw new ConflictException("A user with this e-mail address already exists.");
+            }
+
+            throw error;
+        }
+    }
+
+    public async deleteUser(userId: string, replacementAuthorId: string): Promise<void> {
+        await this.ensureSeeded();
+
+        try {
+            await this.prisma.$transaction(async transaction => {
+                await transaction.elearning.updateMany({
+                    where: { createdById: userId },
+                    data: { createdById: replacementAuthorId },
+                });
+                await transaction.user.delete({ where: { id: userId } });
+            });
+        } catch (error: unknown) {
+            if (isRecordNotFoundError(error)) {
+                throw new NotFoundException(`User with id ${userId} was not found.`);
+            }
+
+            throw error;
+        }
+    }
+
     public async updateApprovalStatus(userId: string, status: ApprovalStatus): Promise<UserRecord> {
         await this.ensureSeeded();
 
@@ -232,13 +326,8 @@ export class UserRepository {
                     approvalStatus: seedUser.approvalStatus,
                     approvedAt: seedUser.approvalStatus === "APPROVED" ? new Date() : null,
                 },
-                update: {
-                    name: seedUser.name,
-                    passwordHash: seedUser.password,
-                    role: seedUser.role,
-                    approvalStatus: seedUser.approvalStatus,
-                    approvedAt: seedUser.approvalStatus === "APPROVED" ? new Date() : null,
-                },
+                // Existing accounts keep profile and password changes made through the portal.
+                update: {},
             });
 
             await this.prisma.userTeamMembership.upsert({
@@ -404,10 +493,19 @@ function mapDbUserToUserRecord(user: DbUserWithPrimaryTeam): UserRecord {
         teamName: user.teamMemberships[0]?.team.name ?? "Unassigned",
         passwordHash: user.passwordHash,
         birthDateIso: user.birthDate.toISOString().split("T")[0],
+        addressLine: user.addressLine,
+        postalCode: user.postalCode,
+        city: user.city,
         role: user.role,
         approvalStatus: user.approvalStatus,
         createdAtIso: user.createdAt.toISOString(),
     };
+}
+
+function normalizeOptionalValue(value: string | undefined): string | null {
+    const normalizedValue = value?.trim();
+    if (!normalizedValue) return null;
+    return normalizedValue;
 }
 
 function isRecordNotFoundError(error: unknown): boolean {

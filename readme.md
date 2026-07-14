@@ -29,6 +29,13 @@ Agentic AI writes the code. You steer, validate and ship.
 - A live streak rewards consecutive learning days
 - The dashboard highlights points, unlocked badges and the next milestone
 
+## User and profile management
+
+- Administrators can view every account, approve or revoke access, change roles and permanently delete regular users.
+- The active administrator and the two default system accounts are protected from deletion.
+- Every user can update their name, e-mail address, birth date, address, postal code, city and team through `Mijn profiel`.
+- Password changes require the current password. Password fields include a visibility toggle.
+
 ## Assessment and open-answer review
 
 - Multiple-choice answers are checked and scored by the API; clients cannot submit their own score or correct status.
@@ -65,6 +72,8 @@ Open:
 
 - Portal: `http://localhost:5173`
 - API: `http://localhost:3000`
+
+The portal sends API requests through `/api`. Vite proxies these requests to the local API. For a separate hosted API, set `VITE_API_BASE_URL` to its public URL before starting or building the portal.
 
 Default seeded users:
 

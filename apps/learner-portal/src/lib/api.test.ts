@@ -14,6 +14,9 @@ void test("should be able to store and restore a valid session while clearing in
 			name: "Test User",
 			email: "test@example.com",
 			teamName: "QA Guild",
+			addressLine: null,
+			postalCode: null,
+			city: null,
 			role: "TRAINER" as const,
 			approvalStatus: "APPROVED" as const,
 			birthDateIso: "1990-01-01",
@@ -72,6 +75,9 @@ void test("should be able to encode API path parameters and actor context correc
 					name: "Trainer",
 					email: "trainer@example.com",
 					teamName: "Academy",
+					addressLine: null,
+					postalCode: null,
+					city: null,
 					role: "TRAINER",
 					approvalStatus: "APPROVED",
 					birthDateIso: "1990-01-01",
@@ -85,7 +91,7 @@ void test("should be able to encode API path parameters and actor context correc
 	}
 
 	assert.equal(calls.length, 1);
-	assert.equal(calls[0]?.input, "http://localhost:3000/elearnings/course%2F1?actorRole=TRAINER&actorUserId=trainer+1");
+	assert.equal(calls[0]?.input, "/api/elearnings/course%2F1?actorRole=TRAINER&actorUserId=trainer+1");
 
 	const headers = calls[0]?.init?.headers;
 	assert.ok(headers instanceof Headers);
@@ -108,6 +114,9 @@ void test("should be able to request the role-specific catalog with the current 
 				name: "Participant",
 				email: "participant@example.com",
 				teamName: "Academy",
+				addressLine: null,
+				postalCode: null,
+				city: null,
 				role: "PARTICIPANT",
 				approvalStatus: "APPROVED",
 				birthDateIso: "1990-01-01",
@@ -119,7 +128,7 @@ void test("should be able to request the role-specific catalog with the current 
 	}
 
 	assert.deepEqual(calls, [
-		"http://localhost:3000/elearnings/public?actorRole=PARTICIPANT&actorUserId=participant-1",
+		"/api/elearnings/public?actorRole=PARTICIPANT&actorUserId=participant-1",
 	]);
 });
 
@@ -183,6 +192,9 @@ void test("should be able to request the gamification summary with the current a
 				name: "Participant",
 				email: "participant@example.com",
 				teamName: "Academy",
+				addressLine: null,
+				postalCode: null,
+				city: null,
 				role: "PARTICIPANT",
 				approvalStatus: "APPROVED",
 				birthDateIso: "1990-01-01",
@@ -193,7 +205,7 @@ void test("should be able to request the gamification summary with the current a
 		globalThis.fetch = originalFetch;
 	}
 
-	assert.deepEqual(calls, ["http://localhost:3000/me/history/gamification/summary?actorRole=PARTICIPANT&actorUserId=participant-1"]);
+	assert.deepEqual(calls, ["/api/me/history/gamification/summary?actorRole=PARTICIPANT&actorUserId=participant-1"]);
 });
 
 function installLocalStorage(storage: StorageDouble): void {
@@ -228,6 +240,9 @@ function getCourse(elearningId: string): Promise<unknown> {
 				name: "Trainer",
 				email: "trainer@example.com",
 				teamName: "Academy",
+				addressLine: null,
+				postalCode: null,
+				city: null,
 				role: "TRAINER",
 				approvalStatus: "APPROVED",
 				birthDateIso: "1990-01-01",

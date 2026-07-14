@@ -11,6 +11,8 @@ export type IconName =
 	| "clock"
 	| "close"
 	| "edit"
+	| "eye"
+	| "eye-off"
 	| "history"
 	| "home"
 	| "layers"
@@ -115,6 +117,19 @@ function getIconPaths(name: IconName): ReactElement {
 				<>
 					<path {...sharedProps} d="M13.5 6.5 17.5 10.5M4 20l4.5-1 10-10a2.8 2.8 0 0 0-4-4l-10 10z" />
 					<path {...sharedProps} d="M13 5.5 18.5 11" />
+				</>
+			);
+		case "eye":
+			return (
+				<>
+					<path {...sharedProps} d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+					<circle {...sharedProps} cx="12" cy="12" r="2.5" />
+				</>
+			);
+		case "eye-off":
+			return (
+				<>
+					<path {...sharedProps} d="m3 3 18 18M10.6 6.1A10 10 0 0 1 12 6c6 0 9.5 6 9.5 6a15.8 15.8 0 0 1-2.2 2.9M6.2 6.2A15.5 15.5 0 0 0 2.5 12s3.5 6 9.5 6a10 10 0 0 0 3-.5M10.2 10.2a2.5 2.5 0 0 0 3.6 3.6" />
 				</>
 			);
 		case "logout":

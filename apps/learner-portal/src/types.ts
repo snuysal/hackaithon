@@ -12,6 +12,7 @@ export type AppRoute =
 	| { name: "course-detail"; path: string; elearningId: string }
 	| { name: "learning"; path: string; elearningId: string }
 	| { name: "history"; path: "/historie" }
+	| { name: "profile"; path: "/profiel" }
 	| { name: "reviews"; path: "/beheer/nakijken" }
 	| { name: "manage-courses"; path: "/beheer/elearnings" }
 	| { name: "manage-users"; path: "/beheer/gebruikers" }

@@ -4,6 +4,7 @@ import {
 	useEffect,
 	useId,
 	useRef,
+	useState,
 	type ButtonHTMLAttributes,
 	type InputHTMLAttributes,
 	type ReactElement,
@@ -47,6 +48,25 @@ export function Button({
 
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>): ReactElement {
 	return <input className={`form-control ${className}`.trim()} {...props} />;
+}
+
+export function PasswordInput({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>): ReactElement {
+	const [isVisible, setIsVisible] = useState(false);
+
+	return (
+		<div className="password-control">
+			<input className={`form-control ${className}`.trim()} {...props} type={isVisible ? "text" : "password"} />
+			<button
+				aria-label={isVisible ? "Wachtwoord verbergen" : "Wachtwoord tonen"}
+				aria-pressed={isVisible}
+				className="password-control__toggle"
+				onClick={() => setIsVisible(current => !current)}
+				type="button"
+			>
+				<Icon name={isVisible ? "eye-off" : "eye"} size={20} />
+			</button>
+		</div>
+	);
 }
 
 export function TextArea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>): ReactElement {

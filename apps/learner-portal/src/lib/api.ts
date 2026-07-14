@@ -17,6 +17,7 @@ import type {
 	SignupRequest,
 	SignupResponse,
 	UpdateElearningRequest,
+	UpdateProfileRequest,
 	UpdateUserRoleRequest,
 	UserSummary,
 } from "@hackaithon/shared-types";
@@ -27,7 +28,8 @@ type ApiErrorPayload = {
 	message?: string | string[];
 };
 
-const API_BASE_URL = "http://localhost:3000";
+const configuredApiBaseUrl = import.meta.env?.VITE_API_BASE_URL?.trim();
+const API_BASE_URL = configuredApiBaseUrl ? configuredApiBaseUrl.replace(/\/$/, "") : "/api";
 const SESSION_STORAGE_KEY = "hackaithon.session";
 
 export function readStoredSession(): SessionState | null {
@@ -69,6 +71,13 @@ export async function login(payload: LoginRequest): Promise<LoginResponse> {
 
 export async function getCurrentUser(session: SessionState): Promise<AuthUserView> {
 	return callApi<AuthUserView>(`/auth/me?userId=${encodeURIComponent(session.user.id)}`);
+}
+
+export async function updateProfile(session: SessionState, payload: UpdateProfileRequest): Promise<AuthUserView> {
+	return callApi<AuthUserView>(`/auth/me?userId=${encodeURIComponent(session.user.id)}`, {
+		method: "PATCH",
+		body: JSON.stringify(payload),
+	});
 }
 
 export async function listPublicElearnings(session: SessionState): Promise<ElearningSummary[]> {
@@ -170,28 +179,38 @@ export async function getHistoryDetail(session: SessionState, enrollmentId: stri
 }
 
 export async function listPendingUsers(session: SessionState): Promise<UserSummary[]> {
-	return callApi<UserSummary[]>(`/admin/users/pending?${buildAdminQuery(session.user.role)}`);
+	return callApi<UserSummary[]>(`/admin/users/pending?${buildAdminQuery(session)}`);
+}
+
+export async function listUsers(session: SessionState): Promise<UserSummary[]> {
+	return callApi<UserSummary[]>(`/admin/users?${buildAdminQuery(session)}`);
 }
 
 export async function approveUser(session: SessionState, userId: string): Promise<UserSummary> {
 	return callApi<UserSummary>(
-		`/admin/users/${encodeURIComponent(userId)}/approve?${buildAdminQuery(session.user.role)}`,
+		`/admin/users/${encodeURIComponent(userId)}/approve?${buildAdminQuery(session)}`,
 		{ method: "PATCH" }
 	);
 }
 
 export async function rejectUser(session: SessionState, userId: string): Promise<UserSummary> {
 	return callApi<UserSummary>(
-		`/admin/users/${encodeURIComponent(userId)}/reject?${buildAdminQuery(session.user.role)}`,
+		`/admin/users/${encodeURIComponent(userId)}/reject?${buildAdminQuery(session)}`,
 		{ method: "PATCH" }
 	);
 }
 
 export async function changeUserRole(session: SessionState, userId: string, newRole: AppRole): Promise<UserSummary> {
 	const payload: UpdateUserRoleRequest = { newRole };
-	return callApi<UserSummary>(`/admin/users/${encodeURIComponent(userId)}/role?${buildAdminQuery(session.user.role)}`, {
+	return callApi<UserSummary>(`/admin/users/${encodeURIComponent(userId)}/role?${buildAdminQuery(session)}`, {
 		method: "PATCH",
 		body: JSON.stringify(payload),
+	});
+}
+
+export async function deleteUser(session: SessionState, userId: string): Promise<void> {
+	return callApi<void>(`/admin/users/${encodeURIComponent(userId)}?${buildAdminQuery(session)}`, {
+		method: "DELETE",
 	});
 }
 
@@ -202,9 +221,10 @@ function buildActorQuery(session: SessionState): string {
 	return params.toString();
 }
 
-function buildAdminQuery(role: AppRole): string {
+function buildAdminQuery(session: SessionState): string {
 	const params = new URLSearchParams();
-	params.set("actorRole", role);
+	params.set("actorRole", session.user.role);
+	params.set("actorUserId", session.user.id);
 	return params.toString();
 }
 

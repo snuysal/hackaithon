@@ -7,6 +7,9 @@ export type UserRecord = {
     teamName: string;
     passwordHash: string;
     birthDateIso: string;
+    addressLine: string | null;
+    postalCode: string | null;
+    city: string | null;
     role: AppRole;
     approvalStatus: ApprovalStatus;
     createdAtIso: string;

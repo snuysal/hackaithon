@@ -7,18 +7,24 @@ import { createHttpTestApp, messageText, readJson } from "../../testing/http-tes
 
 void test("should be able to validate user admin actor roles and update payloads over HTTP", async (t: TestContext): Promise<void> => {
 	const calls: Array<{ userId: string; actorRole: string; payload?: unknown }> = [];
+	const deleteCalls: Array<{ userId: string; actorRole: string; actorUserId: string }> = [];
 	const app = await createHttpTestApp({
 		controllers: [UsersController],
 		providers: [
 			{
 				provide: UsersService,
 				useValue: {
+					listUsers: (): Promise<UserSummaryShape[]> => Promise.resolve([createUserSummary()]),
 					listPendingUsers: (): Promise<unknown[]> => Promise.resolve([]),
 					approveUser: (): Promise<UserSummaryShape> => Promise.resolve(createUserSummary()),
 					rejectUser: (): Promise<UserSummaryShape> => Promise.resolve(createUserSummary()),
 					changeRole: (userId: string, actorRole: string, payload: unknown): Promise<UserSummaryShape> => {
 						calls.push({ userId, actorRole, payload });
 						return Promise.resolve(createUserSummary({ id: userId, role: "TRAINER" }));
+					},
+					deleteUser: (userId: string, actorRole: string, actorUserId: string): Promise<void> => {
+						deleteCalls.push({ userId, actorRole, actorUserId });
+						return Promise.resolve();
 					},
 				},
 			},
@@ -60,6 +66,17 @@ void test("should be able to validate user admin actor roles and update payloads
 			},
 		]
 	);
+
+	const listResponse = await fetch(`${app.baseUrl}/admin/users?actorRole=ADMIN`);
+	assert.equal(listResponse.status, 200);
+	assert.equal(((await readJson(listResponse)) as unknown[]).length, 1);
+
+	const deleteResponse = await fetch(
+		`${app.baseUrl}/admin/users/user-2?actorRole=ADMIN&actorUserId=admin-1`,
+		{ method: "DELETE" }
+	);
+	assert.equal(deleteResponse.status, 204);
+	assert.deepEqual(deleteCalls, [{ userId: "user-2", actorRole: "ADMIN", actorUserId: "admin-1" }]);
 });
 
 function createUserSummary(overrides: Partial<UserSummaryShape> = {}): UserSummaryShape {

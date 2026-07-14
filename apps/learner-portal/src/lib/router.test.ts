@@ -8,6 +8,7 @@ void test("should be able to resolve supported portal routes", (): void => {
 	assert.deepEqual(parseRoute("/catalogus"), { name: "catalog", path: "/catalogus" });
 	assert.deepEqual(parseRoute("/dashboard/"), { name: "dashboard", path: "/dashboard" });
 	assert.deepEqual(parseRoute("/historie"), { name: "history", path: "/historie" });
+	assert.deepEqual(parseRoute("/profiel"), { name: "profile", path: "/profiel" });
 	assert.deepEqual(parseRoute("/beheer/elearnings"), { name: "manage-courses", path: "/beheer/elearnings" });
 	assert.deepEqual(parseRoute("/beheer/gebruikers"), { name: "manage-users", path: "/beheer/gebruikers" });
 });

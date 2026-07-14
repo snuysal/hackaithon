@@ -56,15 +56,60 @@ void test("should be able to delegate user approval and role mutations to the re
 	assert.equal(promotedUser.role, "TRAINER");
 });
 
+void test("should be able to list every user and safely delete a regular account", async (): Promise<void> => {
+	const repository = createUserRepository({
+		listAll: (): Promise<UserRecord[]> =>
+			Promise.resolve([
+				createUserRecord({ id: "admin-1", role: "ADMIN", email: "owner@example.com" }),
+				createUserRecord({ id: "participant-1", approvalStatus: "APPROVED" }),
+			]),
+		findById: (userId: string): Promise<UserRecord> =>
+			Promise.resolve(
+				userId === "admin-1"
+					? createUserRecord({ id: userId, role: "ADMIN", email: "owner@example.com" })
+					: createUserRecord({ id: userId, approvalStatus: "APPROVED" })
+			),
+		deleteUser: (): Promise<void> => Promise.resolve(),
+	});
+	const service = new UsersService(repository as never);
+
+	await assert.rejects(() => service.listUsers("TRAINER"), /Only ADMIN/);
+	assert.equal((await service.listUsers("ADMIN")).length, 2);
+	await assert.rejects(() => service.deleteUser("admin-1", "ADMIN", "admin-1"), /eigen beheerdersaccount/);
+
+	await service.deleteUser("participant-1", "ADMIN", "admin-1");
+	assert.deepEqual(repository.deleteUserCalls, [{ userId: "participant-1", replacementAuthorId: "admin-1" }]);
+});
+
+void test("should not be able to delete a protected default account", async (): Promise<void> => {
+	const repository = createUserRepository({
+		findById: (userId: string): Promise<UserRecord> =>
+			Promise.resolve(
+				userId === "admin-1"
+					? createUserRecord({ id: userId, role: "ADMIN", email: "owner@example.com" })
+					: createUserRecord({ id: userId, role: "TRAINER", email: "trainer@hackaithon.local" })
+			),
+	});
+	const service = new UsersService(repository as never);
+
+	await assert.rejects(
+		() => service.deleteUser("trainer-1", "ADMIN", "admin-1"),
+		/standaardaccount kan niet worden verwijderd/i
+	);
+});
+
 function createUserRepository(overrides: Partial<UserRepositoryDouble> = {}): UserRepositoryDouble {
 	const listByApprovalStatusCalls: ApprovalStatus[] = [];
 	const updateApprovalStatusCalls: Array<{ userId: string; status: MutableApprovalStatus }> = [];
 	const updateRoleCalls: Array<{ userId: string; role: AppRole }> = [];
+	const deleteUserCalls: Array<{ userId: string; replacementAuthorId: string }> = [];
 
 	return {
 		listByApprovalStatusCalls,
 		updateApprovalStatusCalls,
 		updateRoleCalls,
+		deleteUserCalls,
+		listAll: (): Promise<UserRecord[]> => (overrides.listAll ? overrides.listAll() : Promise.resolve([])),
 		listByApprovalStatus: (status: ApprovalStatus): Promise<UserRecord[]> => {
 			listByApprovalStatusCalls.push(status);
 			return overrides.listByApprovalStatus ? overrides.listByApprovalStatus(status) : Promise.resolve([]);
@@ -78,6 +123,14 @@ function createUserRepository(overrides: Partial<UserRepositoryDouble> = {}): Us
 		updateRole: (userId: string, role: AppRole): Promise<UserRecord> => {
 			updateRoleCalls.push({ userId, role });
 			return overrides.updateRole ? overrides.updateRole(userId, role) : Promise.reject(new Error("Unexpected call"));
+		},
+		findById: (userId: string): Promise<UserRecord> =>
+			overrides.findById ? overrides.findById(userId) : Promise.reject(new Error("Unexpected call")),
+		deleteUser: (userId: string, replacementAuthorId: string): Promise<void> => {
+			deleteUserCalls.push({ userId, replacementAuthorId });
+			return overrides.deleteUser
+				? overrides.deleteUser(userId, replacementAuthorId)
+				: Promise.reject(new Error("Unexpected call"));
 		},
 	};
 }
@@ -116,7 +169,11 @@ type UserRepositoryDouble = {
 	listByApprovalStatusCalls: ApprovalStatus[];
 	updateApprovalStatusCalls: Array<{ userId: string; status: MutableApprovalStatus }>;
 	updateRoleCalls: Array<{ userId: string; role: AppRole }>;
+	deleteUserCalls: Array<{ userId: string; replacementAuthorId: string }>;
+	listAll: () => Promise<UserRecord[]>;
 	listByApprovalStatus: (status: ApprovalStatus) => Promise<UserRecord[]>;
 	updateApprovalStatus: (userId: string, status: MutableApprovalStatus) => Promise<UserRecord>;
 	updateRole: (userId: string, role: AppRole) => Promise<UserRecord>;
+	findById: (userId: string) => Promise<UserRecord>;
+	deleteUser: (userId: string, replacementAuthorId: string) => Promise<void>;
 };

@@ -102,6 +102,55 @@ void test("should be able to expose the current user over HTTP", async (t: TestC
 	assert.equal(payload.id, "trainer-1");
 });
 
+void test("should be able to validate and update personal profile data over HTTP", async (t: TestContext): Promise<void> => {
+	let capturedPayload: unknown;
+	const app = await createHttpTestApp({
+		controllers: [AuthController],
+		providers: [
+			{
+				provide: AuthService,
+				useValue: {
+					signup: (): Promise<unknown> => Promise.resolve(null),
+					login: (): Promise<unknown> => Promise.resolve(null),
+					me: (): Promise<unknown> => Promise.resolve(null),
+					updateProfile: (userId: unknown, payload: unknown): Promise<unknown> => {
+						capturedPayload = { userId, payload };
+						return Promise.resolve({ id: userId });
+					},
+				},
+			},
+		],
+	});
+	t.after((): Promise<void> => app.close());
+
+	const invalidResponse = await fetch(`${app.baseUrl}/auth/me?userId=user-1`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ name: "", email: "geen-email" }),
+	});
+	assert.equal(invalidResponse.status, 400);
+
+	const validPayload = {
+		name: "Test User",
+		email: "test@example.com",
+		birthDateIso: "1990-01-01",
+		teamName: "QA Guild",
+		addressLine: "Oudegracht 123",
+		postalCode: "3511 AB",
+		city: "Utrecht",
+		currentPassword: "secret1",
+		newPassword: "newsecret",
+	};
+	const validResponse = await fetch(`${app.baseUrl}/auth/me?userId=user-1`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(validPayload),
+	});
+
+	assert.equal(validResponse.status, 200);
+	assert.deepEqual(JSON.parse(JSON.stringify(capturedPayload)), { userId: "user-1", payload: validPayload });
+});
+
 type AuthResponse = {
 	user: {
 		id: string;

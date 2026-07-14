@@ -54,6 +54,9 @@ model User {
 	email          String         @unique
 	passwordHash   String
 	birthDate      DateTime
+	addressLine    String?
+	postalCode     String?
+	city           String?
 	role           AppRole        @default(PARTICIPANT)
 	approvalStatus ApprovalStatus @default(PENDING)
 	approvedAt     DateTime?

@@ -15,6 +15,7 @@ const navigationItems: NavigationItem[] = [
 	{ href: "/dashboard", icon: "home", label: "Dashboard" },
 	{ href: "/catalogus", icon: "book", label: "Catalogus" },
 	{ href: "/historie", icon: "history", label: "Historie" },
+	{ href: "/profiel", icon: "user", label: "Mijn profiel" },
 	{ href: "/beheer/nakijken", icon: "edit", label: "Antwoorden nakijken", roles: ["ADMIN", "TRAINER"] },
 	{
 		href: "/beheer/elearnings",

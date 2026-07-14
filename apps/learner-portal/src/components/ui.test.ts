@@ -4,7 +4,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { CourseCard } from "./ui.js";
+import { CourseCard, PasswordInput } from "./ui.js";
 
 void test("should be able to render the estimated duration from the API model in the course card", (): void => {
 	const markup = renderToStaticMarkup(
@@ -27,4 +27,11 @@ void test("should be able to render the estimated duration from the API model in
 	assert.match(markup, /37 min/);
 	assert.match(markup, /Security Basics/);
 	assert.match(markup, /4 onderdelen/);
+});
+
+void test("should render password inputs hidden by default with an accessible visibility toggle", (): void => {
+	const markup = renderToStaticMarkup(createElement(PasswordInput, { id: "password", value: "secret1", readOnly: true }));
+
+	assert.match(markup, /type="password"/);
+	assert.match(markup, /aria-label="Wachtwoord tonen"/);
 });

@@ -126,15 +126,80 @@ void test("should be able to validate the me input and map the stored user respo
 	assert.equal(response.canAccessLearning, true);
 });
 
+void test("should be able to update a profile and require the current password for password changes", async (): Promise<void> => {
+	const currentUser: UserRecord = {
+		id: "participant-1",
+		name: "Old Name",
+		email: "old@example.com",
+		teamName: "Old Team",
+		passwordHash: "secret1",
+		birthDateIso: "1990-01-01",
+		addressLine: null,
+		postalCode: null,
+		city: null,
+		role: "PARTICIPANT",
+		approvalStatus: "APPROVED",
+		createdAtIso: "2026-07-10T10:00:00.000Z",
+	};
+	const repository = createUserRepository({
+		findById: (): Promise<UserRecord> => Promise.resolve(currentUser),
+		updateProfile: (userId: string, input: UpdateProfileInput): Promise<UserRecord> =>
+			Promise.resolve({
+				...currentUser,
+				id: userId,
+				name: input.name,
+				email: input.email,
+				teamName: input.teamName,
+				birthDateIso: input.birthDateIso,
+				addressLine: input.addressLine ?? null,
+				postalCode: input.postalCode ?? null,
+				city: input.city ?? null,
+				passwordHash: input.password ?? currentUser.passwordHash,
+			}),
+	});
+	const service = new AuthService(repository as never);
+
+	await assert.rejects(
+		() =>
+			service.updateProfile("participant-1", {
+				name: "New Name",
+				email: "new@example.com",
+				birthDateIso: "1991-02-02",
+				teamName: "New Team",
+				currentPassword: "incorrect",
+				newPassword: "newsecret",
+			}),
+		/huidige wachtwoord is niet correct/i
+	);
+
+	const response = await service.updateProfile("participant-1", {
+		name: "New Name",
+		email: " NEW@Example.com ",
+		birthDateIso: "1991-02-02",
+		teamName: "New Team",
+		addressLine: "Oudegracht 123",
+		postalCode: "3511 AB",
+		city: "Utrecht",
+		currentPassword: "secret1",
+		newPassword: "newsecret",
+	});
+
+	assert.equal(response.email, "new@example.com");
+	assert.equal(response.city, "Utrecht");
+	assert.equal(repository.updateProfileCalls[0]?.password, "newsecret");
+});
+
 function createUserRepository(overrides: Partial<UserRepositoryDouble> = {}): UserRepositoryDouble {
 	const createParticipantCalls: CreateParticipantInput[] = [];
 	const findByEmailCalls: string[] = [];
 	const findByIdCalls: string[] = [];
+	const updateProfileCalls: UpdateProfileInput[] = [];
 
 	return {
 		createParticipantCalls,
 		findByEmailCalls,
 		findByIdCalls,
+		updateProfileCalls,
 		createParticipant: (input: CreateParticipantInput): Promise<UserRecord> => {
 			createParticipantCalls.push(input);
 			return overrides.createParticipant ? overrides.createParticipant(input) : Promise.reject(new Error("Unexpected call"));
@@ -147,6 +212,12 @@ function createUserRepository(overrides: Partial<UserRepositoryDouble> = {}): Us
 			findByIdCalls.push(userId);
 			return overrides.findById ? overrides.findById(userId) : Promise.reject(new Error("Unexpected call"));
 		},
+		updateProfile: (userId: string, input: UpdateProfileInput): Promise<UserRecord> => {
+			updateProfileCalls.push(input);
+			return overrides.updateProfile
+				? overrides.updateProfile(userId, input)
+				: Promise.reject(new Error("Unexpected call"));
+		},
 	};
 }
 
@@ -157,9 +228,23 @@ type UserRecord = {
 	teamName: string;
 	passwordHash: string;
 	birthDateIso: string;
+	addressLine?: string | null;
+	postalCode?: string | null;
+	city?: string | null;
 	role: "ADMIN" | "TRAINER" | "PARTICIPANT";
 	approvalStatus: "PENDING" | "APPROVED" | "REJECTED";
 	createdAtIso: string;
+};
+
+type UpdateProfileInput = {
+	name: string;
+	email: string;
+	birthDateIso: string;
+	teamName: string;
+	addressLine?: string;
+	postalCode?: string;
+	city?: string;
+	password?: string;
 };
 
 type CreateParticipantInput = {
@@ -174,7 +259,9 @@ type UserRepositoryDouble = {
 	createParticipantCalls: CreateParticipantInput[];
 	findByEmailCalls: string[];
 	findByIdCalls: string[];
+	updateProfileCalls: UpdateProfileInput[];
 	createParticipant: (input: CreateParticipantInput) => Promise<UserRecord>;
 	findByEmail: (email: string) => Promise<UserRecord | null>;
 	findById: (userId: string) => Promise<UserRecord>;
+	updateProfile: (userId: string, input: UpdateProfileInput) => Promise<UserRecord>;
 };

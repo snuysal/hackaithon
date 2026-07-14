@@ -13,7 +13,7 @@ import {
 	Select,
 	StatusBadge,
 } from "../components/ui.js";
-import { approveUser, changeUserRole, listPendingUsers, rejectUser } from "../lib/api.js";
+import { approveUser, changeUserRole, deleteUser, listUsers, rejectUser } from "../lib/api.js";
 import type { FeedbackMessage, SessionState } from "../types.js";
 
 type AdminUsersPageProps = {
@@ -24,6 +24,7 @@ type AdminUsersPageProps = {
 export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): ReactElement {
 	const [users, setUsers] = useState<UserSummary[]>([]);
 	const [rejectTarget, setRejectTarget] = useState<UserSummary | null>(null);
+	const [deleteTarget, setDeleteTarget] = useState<UserSummary | null>(null);
 	const [busyUserId, setBusyUserId] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -32,7 +33,7 @@ export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): Re
 		setIsLoading(true);
 		setError("");
 		try {
-			setUsers(await listPendingUsers(session));
+			setUsers(await listUsers(session));
 		} catch (caughtError: unknown) {
 			setError((caughtError as Error).message);
 		} finally {
@@ -47,8 +48,8 @@ export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): Re
 	async function handleApprove(user: UserSummary): Promise<void> {
 		setBusyUserId(user.id);
 		try {
-			await approveUser(session, user.id);
-			setUsers(current => current.filter(item => item.id !== user.id));
+			const updatedUser = await approveUser(session, user.id);
+			setUsers(current => current.map(item => (item.id === user.id ? updatedUser : item)));
 			onFeedback({ type: "success", text: `${user.name} heeft nu toegang tot de Academy.` });
 		} catch (caughtError: unknown) {
 			onFeedback({ type: "error", text: (caughtError as Error).message });
@@ -61,10 +62,25 @@ export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): Re
 		if (!rejectTarget) return;
 		setBusyUserId(rejectTarget.id);
 		try {
-			await rejectUser(session, rejectTarget.id);
-			setUsers(current => current.filter(item => item.id !== rejectTarget.id));
-			onFeedback({ type: "info", text: `De aanvraag van ${rejectTarget.name} is afgewezen.` });
+			const updatedUser = await rejectUser(session, rejectTarget.id);
+			setUsers(current => current.map(item => (item.id === rejectTarget.id ? updatedUser : item)));
+			onFeedback({ type: "info", text: `De toegang van ${rejectTarget.name} is ingetrokken.` });
 			setRejectTarget(null);
+		} catch (caughtError: unknown) {
+			onFeedback({ type: "error", text: (caughtError as Error).message });
+		} finally {
+			setBusyUserId(null);
+		}
+	}
+
+	async function handleDelete(): Promise<void> {
+		if (!deleteTarget) return;
+		setBusyUserId(deleteTarget.id);
+		try {
+			await deleteUser(session, deleteTarget.id);
+			setUsers(current => current.filter(item => item.id !== deleteTarget.id));
+			onFeedback({ type: "success", text: `${deleteTarget.name} is verwijderd.` });
+			setDeleteTarget(null);
 		} catch (caughtError: unknown) {
 			onFeedback({ type: "error", text: (caughtError as Error).message });
 		} finally {
@@ -98,8 +114,8 @@ export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): Re
 	return (
 		<>
 			<PageHeader
-				eyebrow="Toegang en rollen"
-				subtitle="Beoordeel nieuwe deelnemers en kies direct welke rol bij hun werkzaamheden past."
+				eyebrow="Accounts, toegang en rollen"
+				subtitle="Bekijk alle gebruikers, beheer hun toegang en verwijder accounts die niet meer nodig zijn."
 				title="Gebruikersbeheer"
 			/>
 			<Card className="users-overview">
@@ -109,13 +125,14 @@ export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): Re
 							<Icon name="users" />
 						</span>
 						<div>
-							<h2>Openstaande aanvragen</h2>
+							<h2>Alle gebruikers</h2>
 							<p>
-								{users.length} {users.length === 1 ? "aanvraag wacht" : "aanvragen wachten"} op beoordeling
+								{users.length} {users.length === 1 ? "account" : "accounts"}, waarvan {getPendingCount(users)} in
+								afwachting
 							</p>
 						</div>
 					</div>
-					<StatusBadge status="PENDING" />
+					<StatusBadge status={getPendingCount(users) > 0 ? "PENDING" : "APPROVED"} />
 				</header>
 				{users.length > 0 ? (
 					<div className="user-table-wrap">
@@ -162,7 +179,8 @@ export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): Re
 											<StatusBadge status={user.approvalStatus} />
 										</td>
 										<td>
-											<div className="user-actions">
+										<div className="user-actions">
+											{user.approvalStatus !== "APPROVED" ? (
 												<Button
 													disabled={busyUserId === user.id}
 													isLoading={busyUserId === user.id}
@@ -170,10 +188,19 @@ export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): Re
 												>
 													Goedkeuren
 												</Button>
+											) : (
 												<Button disabled={busyUserId === user.id} onClick={() => setRejectTarget(user)} variant="ghost">
-													Afwijzen
+													Toegang intrekken
 												</Button>
-											</div>
+											)}
+											<Button
+												disabled={busyUserId === user.id || isProtectedUser(user, session.user.id)}
+												onClick={() => setDeleteTarget(user)}
+												variant="danger"
+											>
+												Verwijderen
+											</Button>
+										</div>
 										</td>
 									</tr>
 								))}
@@ -181,10 +208,7 @@ export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): Re
 						</table>
 					</div>
 				) : (
-					<EmptyState
-						description="Er zijn geen nieuwe deelnemers die op beoordeling wachten."
-						title="Alles is bijgewerkt"
-					/>
+					<EmptyState description="Er zijn nog geen gebruikers om te beheren." title="Geen gebruikers gevonden" />
 				)}
 			</Card>
 
@@ -195,20 +219,53 @@ export function AdminUsersPage({ onFeedback, session }: AdminUsersPageProps): Re
 							Annuleren
 						</Button>
 						<Button isLoading={busyUserId === rejectTarget?.id} onClick={() => void handleReject()} variant="danger">
-							Aanvraag afwijzen
+							Toegang intrekken
 						</Button>
 					</>
 				}
 				isOpen={Boolean(rejectTarget)}
 				onClose={() => setRejectTarget(null)}
-				title="Aanvraag afwijzen?"
+				title="Toegang intrekken?"
 			>
 				<p>
-					<strong>{rejectTarget?.name}</strong> krijgt geen toegang tot de Academy. Je kunt dit later alleen via de
-					beheeromgeving herstellen.
+					<strong>{rejectTarget?.name}</strong> kan na deze wijziging niet meer leren. Het account en de historie blijven
+					bewaard en je kunt de toegang later opnieuw goedkeuren.
+				</p>
+			</Dialog>
+
+			<Dialog
+				footer={
+					<>
+						<Button onClick={() => setDeleteTarget(null)} variant="ghost">
+							Annuleren
+						</Button>
+						<Button isLoading={busyUserId === deleteTarget?.id} onClick={() => void handleDelete()} variant="danger">
+							Definitief verwijderen
+						</Button>
+					</>
+				}
+				isOpen={Boolean(deleteTarget)}
+				onClose={() => setDeleteTarget(null)}
+				title="Gebruiker verwijderen?"
+			>
+				<p>
+					<strong>{deleteTarget?.name}</strong> en alle persoonlijke leerhistorie worden definitief verwijderd. Deze actie
+					kan niet ongedaan worden gemaakt.
 				</p>
 			</Dialog>
 		</>
+	);
+}
+
+function getPendingCount(users: UserSummary[]): number {
+	return users.filter(user => user.approvalStatus === "PENDING").length;
+}
+
+function isProtectedUser(user: UserSummary, currentUserId: string): boolean {
+	return (
+		user.id === currentUserId ||
+		user.email === "admin@hackaithon.local" ||
+		user.email === "trainer@hackaithon.local"
 	);
 }
 

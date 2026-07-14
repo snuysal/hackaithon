@@ -52,10 +52,25 @@ export type AuthUserView = {
     name: string;
     email: string;
     teamName: string;
+    addressLine: string | null;
+    postalCode: string | null;
+    city: string | null;
     role: AppRole;
     approvalStatus: ApprovalStatus;
     birthDateIso: string;
     canAccessLearning: boolean;
+};
+
+export type UpdateProfileRequest = {
+    name: string;
+    email: string;
+    birthDateIso: string;
+    teamName: string;
+    addressLine?: string;
+    postalCode?: string;
+    city?: string;
+    currentPassword?: string;
+    newPassword?: string;
 };
 
 export type SignupResponse = {

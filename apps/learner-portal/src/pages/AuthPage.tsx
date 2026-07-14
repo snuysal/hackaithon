@@ -1,7 +1,7 @@
 import { useState, type ReactElement, type SyntheticEvent } from "react";
 
 import { Icon } from "../components/Icon.js";
-import { Button, FormField, Input } from "../components/ui.js";
+import { Button, FormField, Input, PasswordInput } from "../components/ui.js";
 import { login, signup } from "../lib/api.js";
 import type { FeedbackMessage, SessionState } from "../types.js";
 
@@ -173,13 +173,12 @@ export function AuthPage({ onAuthenticated, onFeedback }: AuthPageProps): ReactE
 								/>
 							</FormField>
 							<FormField htmlFor="login-password" label="Wachtwoord" required>
-								<Input
+								<PasswordInput
 									autoComplete="current-password"
 									id="login-password"
 									name="password"
 									onChange={event => setLoginForm(current => ({ ...current, password: event.target.value }))}
 									placeholder="Je wachtwoord"
-									type="password"
 									value={loginForm.password}
 								/>
 							</FormField>
@@ -227,12 +226,11 @@ export function AuthPage({ onAuthenticated, onFeedback }: AuthPageProps): ReactE
 								</FormField>
 							</div>
 							<FormField hint="Gebruik minimaal 6 tekens." htmlFor="signup-password" label="Wachtwoord" required>
-								<Input
+								<PasswordInput
 									autoComplete="new-password"
 									id="signup-password"
 									onChange={event => setSignupForm(current => ({ ...current, password: event.target.value }))}
 									placeholder="Kies een veilig wachtwoord"
-									type="password"
 									value={signupForm.password}
 								/>
 							</FormField>
