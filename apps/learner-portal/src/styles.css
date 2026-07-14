@@ -295,14 +295,21 @@ p {
 
 .form-field {
 	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: auto auto minmax(1.25rem, auto);
 	min-width: 0;
 	gap: 0.5rem;
 }
 
 .form-field label {
+	grid-row: 1;
 	color: var(--cerios-metal);
 	font-size: 0.875rem;
 	font-weight: 600;
+}
+
+.form-field > :not(label):not(.form-field__hint):not(.form-field__error) {
+	grid-row: 2;
 }
 
 .form-control {
