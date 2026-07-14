@@ -238,7 +238,7 @@ export function DashboardPage({ onNavigate, session }: DashboardPageProps): Reac
 					{canLearn && gamification ? (
 						<Card className="learning-momentum">
 							<div className="learning-momentum__header">
-								<p className="eyebrow">Gamification</p>
+
 								<h2>Je momentum</h2>
 								<p>Elke opgeslagen stap telt mee voor badges, streaks en zichtbare voortgang.</p>
 							</div>
