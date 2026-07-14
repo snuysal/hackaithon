@@ -80,6 +80,174 @@ export const DEFAULT_SEED_BADGES: ReadonlyArray<SeedBadge> = [
 
 export const DEFAULT_SEED_ELEARNINGS: ReadonlyArray<SeedElearning> = [
     {
+        id: "seed-elearning-cerios-onboarding",
+        title: "Welkom bij Cerios B.V.",
+        description:
+            "Een onboarding-e-learning over Cerios B.V. met basisinformatie over het bedrijf, de werkwijze, klantgericht werken en de rol van medewerkers. Bron: Cerios.nl.",
+        level: "JUNIOR",
+        audience: "ALL",
+        sections: [
+            {
+                id: "seed-cerios-company-overview",
+                title: "Wie is Cerios B.V.?",
+                content:
+                    "Cerios B.V. is een organisatie die zich richt op digitale dienstverlening, innovatie en samenwerking. De onderneming helpt klanten met praktische oplossingen en werkt daarbij aan een heldere en betrouwbare klantervaring. Een goede introductie begint met het begrijpen van de missie, de waarden en de manier waarop Cerios haar diensten aanpakt. Vanuit Cerios.nl kun je de basisinformatie terugvinden over de organisatie en haar focusgebieden.",
+                assignment: {
+                    assignmentType: "QUIZ",
+                    prompt: "Welke kernvraag hoort bij de introductie van Cerios B.V.?",
+                    optionsJson: JSON.stringify([
+                        "Wat is de prijs van de diensten?",
+                        "Wat doet Cerios B.V. en hoe ondersteunt het klanten?",
+                        "Welke vakantieplannen heeft de organisatie?",
+                    ]),
+                    correctAnswerJson: JSON.stringify("Wat doet Cerios B.V. en hoe ondersteunt het klanten?"),
+                    points: 10,
+                },
+            },
+            {
+                id: "seed-cerios-vision",
+                title: "Missie en waarden",
+                content:
+                    "Een sterke organisatie wordt gedragen door duidelijke waarden. Bij Cerios B.V. is het belangrijk om te werken met oog voor kwaliteit, samenwerking en klantgerichtheid. Als medewerker help je die waarden door verantwoordelijkheid te nemen, slim te communiceren en te kiezen voor oplossingen die passen bij de behoefte van de klant.",
+                assignment: {
+                    assignmentType: "QUIZ",
+                    prompt: "Welke houding past bij Cerios B.V.?",
+                    optionsJson: JSON.stringify([
+                        "Alleen werken wanneer iemand anders kijkt",
+                        "Klantgericht en samenwerkingsgericht handelen",
+                        "Alleen standaard antwoorden geven",
+                    ]),
+                    correctAnswerJson: JSON.stringify("Klantgericht en samenwerkingsgericht handelen"),
+                    points: 10,
+                },
+            },
+            {
+                id: "seed-cerios-digital-services",
+                title: "Digitale dienstverlening",
+                content:
+                    "Cerios werkt in een moderne omgeving waarin digitale oplossingen en samenwerking centraal staan. Dat betekent dat medewerkers snel kunnen schakelen tussen informatie, tools en klantcontact. Een goede basis is het begrijpen van de context, het volgen van afspraken en het gebruiken van betrouwbare informatie uit de juiste bronnen zoals Cerios.nl.",
+                assignment: {
+                    assignmentType: "QUIZ",
+                    prompt: "Waarom is digitale dienstverlening belangrijk voor Cerios B.V.?",
+                    optionsJson: JSON.stringify([
+                        "Omdat alles op papier moet gebeuren",
+                        "Omdat samenwerking en snelle toegang tot informatie nodig zijn",
+                        "Omdat klanten nooit vragen stellen",
+                    ]),
+                    correctAnswerJson: JSON.stringify("Omdat samenwerking en snelle toegang tot informatie nodig zijn"),
+                    points: 10,
+                },
+            },
+            {
+                id: "seed-cerios-customer-focus",
+                title: "Klanten centraal",
+                content:
+                    "Klanten verwachten dat hun behoeften serieus worden genomen. Daarom is het belangrijk om actief te luisteren, heldere informatie te geven en passende vervolgstappen te suggereren. Een medewerker van Cerios B.V. helpt klanten niet alleen met een antwoord, maar ook met een begrijpelijke en professionele ervaring.",
+                assignment: {
+                    assignmentType: "QUIZ",
+                    prompt: "Wat is een belangrijke eigenschap van klantgericht werken?",
+                    optionsJson: JSON.stringify([
+                        "Snel antwoorden zonder uitleg",
+                        "Actief luisteren en duidelijke communicatie",
+                        "Alleen standaardformulieren gebruiken",
+                    ]),
+                    correctAnswerJson: JSON.stringify("Actief luisteren en duidelijke communicatie"),
+                    points: 10,
+                },
+            },
+            {
+                id: "seed-cerios-working-together",
+                title: "Samenwerken als team",
+                content:
+                    "Cerios B.V. werkt in een omgeving waarin samenwerking en afstemming belangrijk zijn. Goede communicatie, duidelijke handelingen en respect voor elkaars rol helpen om taken soepel te laten verlopen. Als medewerker draag je bij aan een professionele werkomgeving door open te communiceren en afspraken na te leven.",
+                assignment: {
+                    assignmentType: "QUIZ",
+                    prompt: "Waarom is samenwerking belangrijk binnen Cerios B.V.?",
+                    optionsJson: JSON.stringify([
+                        "Omdat iedereen alles zelf moet oplossen",
+                        "Omdat afstemming en communicatie fouten voorkomen",
+                        "Omdat taken nooit hoeven te worden gedeeld",
+                    ]),
+                    correctAnswerJson: JSON.stringify("Omdat afstemming en communicatie fouten voorkomen"),
+                    points: 10,
+                },
+            },
+            {
+                id: "seed-cerios-responsibility",
+                title: "Verantwoordelijkheid en kwaliteit",
+                content:
+                    "Kwaliteit begint bij kleine keuzes. Een medewerker van Cerios B.V. zorgt ervoor dat informatie klopt, dat taken zorgvuldig worden uitgevoerd en dat afspraken worden nagekomen. Dit draagt bij aan vertrouwen bij klanten en binnen het team.",
+                assignment: {
+                    assignmentType: "QUIZ",
+                    prompt: "Wat hoort bij verantwoordelijkheid in deze context?",
+                    optionsJson: JSON.stringify([
+                        "Niets controleren en alles laten liggen",
+                        "Zorgen voor kwaliteit en betrouwbaarheid",
+                        "Alleen werken als er tijd over is",
+                    ]),
+                    correctAnswerJson: JSON.stringify("Zorgen voor kwaliteit en betrouwbaarheid"),
+                    points: 10,
+                },
+            },
+            {
+                id: "seed-cerios-source-use",
+                title: "Bronnen gebruiken",
+                content:
+                    "Een goede introductie maakt gebruik van betrouwbare bronnen. Voor Cerios B.V. is Cerios.nl een relevante bron om meer te leren over de organisatie, haar aanpak en haar informatie. Door informatie te vergelijken en te controleren, maak je betere keuzes in je werk.",
+                assignment: {
+                    assignmentType: "QUIZ",
+                    prompt: "Wat kun je doen met informatie van Cerios.nl?",
+                    optionsJson: JSON.stringify([
+                        "Niets, omdat het niet nodig is",
+                        "De informatie gebruiken om de organisatie beter te begrijpen",
+                        "Alleen voor persoonlijk gebruik zonder context",
+                    ]),
+                    correctAnswerJson: JSON.stringify("De informatie gebruiken om de organisatie beter te begrijpen"),
+                    points: 10,
+                },
+            },
+            {
+                id: "seed-cerios-problem-solving",
+                title: "Problemen aanpakken",
+                content:
+                    "Een goede medewerker kijkt naar de kern van een probleem, vraagt door waar nodig is en zoekt naar een haalbare oplossing. Bij Cerios B.V. betekent dat dat je werkt met aandacht voor de klant, de organisatie en het proces dat daarbij hoort.",
+                assignment: {
+                    assignmentType: "QUIZ",
+                    prompt: "Wat is een slimme aanpak bij problemen?",
+                    optionsJson: JSON.stringify([
+                        "Direct reageren zonder na te denken",
+                        "De kern begrijpen en een passende oplossing zoeken",
+                        "Alles uitstellen tot later",
+                    ]),
+                    correctAnswerJson: JSON.stringify("De kern begrijpen en een passende oplossing zoeken"),
+                    points: 10,
+                },
+            },
+            {
+                id: "seed-cerios-open-reflection",
+                title: "Reflectie op jouw rol",
+                content:
+                    "Neem even de tijd om na te denken over jouw rol binnen Cerios B.V. Welke waarde wil jij toevoegen? Hoe zie jij samenwerking, klantgericht werken en kwaliteit in jouw dagelijkse werkzaamheden terugkomen? Beschrijf in eigen woorden wat je van deze introductie meeneemt.",
+                assignment: {
+                    assignmentType: "OPEN_TEXT",
+                    prompt: "Beschrijf in eigen woorden wat jij van deze introductie meeneemt voor jouw rol binnen Cerios B.V.",
+                    points: 10,
+                },
+            },
+            {
+                id: "seed-cerios-open-next-step",
+                title: "Volgende stap",
+                content:
+                    "Na deze introductie kun je nadenken over je volgende stap. Welke bijdrage wil je leveren aan Cerios B.V. en welke eerste actie zou je willen nemen om beter te begrijpen hoe het bedrijf werkt? Schrijf je ideeën kort op.",
+                assignment: {
+                    assignmentType: "OPEN_TEXT",
+                    prompt: "Welke eerste actie wil jij ondernemen om jezelf beter in te werken bij Cerios B.V.?",
+                    points: 10,
+                },
+            },
+        ],
+    },
+    {
         id: "seed-elearning-platform-guide",
         title: "Werken met Cerios Academy",
         description:
